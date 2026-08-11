@@ -145,7 +145,17 @@ export async function loadRuntimeConfig({ configPath, env = process.env } = {}) 
   const home = runtimeHome(env);
   const selected = configPath ?? env.CODEX_IMAGE_CONTEXT_CONFIG ?? standardConfigPath(env);
   if (typeof selected !== "string" || !path.isAbsolute(selected)) fail("CONFIG_INVALID", "config path must be absolute");
-  const exists = await fs.stat(selected).then((entry) => entry.isFile()).catch(() => false);
+  let exists = false;
+  try {
+    const entry = await fs.stat(selected);
+    if (!entry.isFile()) fail("CONFIG_INVALID", "config path must identify a file");
+    exists = true;
+  } catch (error) {
+    if (error?.code !== "ENOENT") {
+      if (error?.code === "CONFIG_INVALID") throw error;
+      fail("CONFIG_INVALID", "config path is unavailable");
+    }
+  }
   const explicitRoots = parseWorkspaceRoots(env.CODEX_IMAGE_CONTEXT_ROOTS);
   if (!exists && !explicitRoots) fail("CONFIG_REQUIRED", "run the configuration helper before starting the MCP server");
   const fileConfig = exists ? await readJsonFileBounded(path.resolve(selected)) : null;

@@ -9,6 +9,7 @@ import { HANDOFF_MAX_BYTES, MCP_ENVELOPE_MAX_BYTES } from "../src/constants.mjs"
 import { createMcpDispatcher, createMcpService, MCP_TOOLS } from "../src/mcp-service.mjs";
 import { createMockProvider } from "../src/providers/mock.mjs";
 import { ImageContextRuntime } from "../src/runtime.mjs";
+import { configure } from "../scripts/configure.mjs";
 
 const CONFIG_SCHEMA = "codex-image-context-config-v1";
 
@@ -83,6 +84,62 @@ test("stable config discovery does not depend on PLUGIN_DATA", () => {
   const second = standardConfigPath({ ...common, PLUGIN_DATA: path.join(os.tmpdir(), "plugin-b") });
   assert.equal(first, second);
   assert.equal(first, path.join(platformConfigHome, "codex-image-context-runtime", "config.json"));
+});
+
+test("configuration paths that are not files fail closed", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-context-config-path-test-"));
+  const workspace = path.join(root, "workspace");
+  const runtimeDir = path.join(root, "runtime");
+  const configDirectory = path.join(root, "config-as-directory");
+  try {
+    await Promise.all([
+      fs.mkdir(workspace, { recursive: true }),
+      fs.mkdir(configDirectory, { recursive: true })
+    ]);
+    await assert.rejects(
+      loadRuntimeConfig({ configPath: configDirectory, env: {} }),
+      (error) => error?.code === "CONFIG_INVALID"
+    );
+    await assert.rejects(
+      configure([
+        "--workspace", workspace,
+        "--runtime-dir", runtimeDir,
+        "--config", configDirectory,
+        "--provider", "mock"
+      ], { env: {} }),
+      (error) => error?.code === "CONFIG_EXISTS"
+    );
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test("concurrent configuration without force never overwrites", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-context-config-race-test-"));
+  const workspace = path.join(root, "workspace");
+  const configPath = path.join(root, "config", "config.json");
+  try {
+    await fs.mkdir(workspace, { recursive: true });
+    const makeArgs = (runtimeName) => [
+      "--workspace", workspace,
+      "--runtime-dir", path.join(root, runtimeName),
+      "--config", configPath,
+      "--provider", "mock"
+    ];
+    const settled = await Promise.allSettled([
+      configure(makeArgs("runtime-a"), { env: {} }),
+      configure(makeArgs("runtime-b"), { env: {} })
+    ]);
+    assert.equal(settled.filter((item) => item.status === "fulfilled").length, 1);
+    const rejected = settled.filter((item) => item.status === "rejected");
+    assert.equal(rejected.length, 1);
+    assert.equal(rejected[0].reason?.code, "CONFIG_EXISTS");
+    const persisted = JSON.parse(await fs.readFile(configPath, "utf8"));
+    assert.equal(persisted.schema, CONFIG_SCHEMA);
+    assert.ok(["runtime-a", "runtime-b"].some((name) => persisted.runtime_dir.endsWith(name)));
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
 });
 
 test("mock generation and inspection stay text-only and within MCP and handoff budgets", async (t) => {

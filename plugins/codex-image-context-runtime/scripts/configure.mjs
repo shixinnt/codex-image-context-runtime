@@ -1,11 +1,10 @@
 #!/usr/bin/env node
-import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { CONFIG_SCHEMA } from "../src/constants.mjs";
 import { normalizeRuntimeConfig, runtimeHome, standardConfigPath } from "../src/config.mjs";
 import { closedErrorCode, fail } from "../src/errors.mjs";
-import { atomicWriteJson } from "../src/safety.mjs";
+import { atomicWriteJson, writeNewJson } from "../src/safety.mjs";
 
 export function parseConfigureArgs(argv, { env = process.env } = {}) {
   if (!Array.isArray(argv)) throw new Error("argv must be an array");
@@ -63,16 +62,22 @@ export function parseConfigureArgs(argv, { env = process.env } = {}) {
 export async function configure(argv = process.argv.slice(2), options = {}) {
   const parsed = parseConfigureArgs(argv, options);
   const normalized = await normalizeRuntimeConfig(parsed.config);
-  const exists = await fs.stat(parsed.configPath).then((entry) => entry.isFile()).catch(() => false);
-  if (exists && !parsed.force) fail("CONFIG_EXISTS", "configuration already exists; pass --force to replace it");
   const persisted = {
     schema: normalized.schema,
     runtime_dir: normalized.runtime_dir,
     provider: { ...normalized.provider },
     workspaces: normalized.workspaces.map((workspace) => ({ id: workspace.id, root: workspace.root }))
   };
-  await fs.mkdir(path.dirname(parsed.configPath), { recursive: true, mode: 0o700 });
-  await atomicWriteJson(parsed.configPath, persisted);
+  if (parsed.force) {
+    await atomicWriteJson(parsed.configPath, persisted);
+  } else {
+    try {
+      await writeNewJson(parsed.configPath, persisted);
+    } catch (error) {
+      if (error?.code === "EEXIST") fail("CONFIG_EXISTS", "configuration already exists; pass --force to replace it");
+      throw error;
+    }
+  }
   return { status: "configured", config_path: parsed.configPath, provider: normalized.provider.mode, workspace_ids: normalized.workspaces.map((workspace) => workspace.id) };
 }
 

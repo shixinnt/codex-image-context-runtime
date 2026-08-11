@@ -189,6 +189,21 @@ test("provider dispatch concurrency is bounded to two", async (t) => {
   assert.equal(maximum, 2);
 });
 
+test("waitForIdle follows the active worker without high-frequency state polling", async (t) => {
+  const { runtime } = await fixture(t, { provider: createMockProvider({ delayMs: 500 }) });
+  const originalRequireJob = runtime.store.requireJob.bind(runtime.store);
+  let reads = 0;
+  runtime.store.requireJob = async (...args) => {
+    reads += 1;
+    return originalRequireJob(...args);
+  };
+
+  const submitted = await runtime.submitGeneration(generationArgs("active-wait"));
+  const completed = await runtime.waitForIdle(submitted.job_id);
+  assert.equal(completed.status, "completed");
+  assert.ok(reads < 20, `active wait performed too many durable state reads: ${reads}`);
+});
+
 test("resume refuses a safe-retry job after provider configuration changes", async (t) => {
   const failingProvider = {
     name: "mock",

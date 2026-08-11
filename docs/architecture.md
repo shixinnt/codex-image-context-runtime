@@ -70,7 +70,7 @@ Job records, handoffs, idempotency claims, and output reservations are separate 
 
 On filesystems that support hard links, a generated artifact is fully written and synced to a temporary file before an exclusive no-overwrite publish. Some Windows, SMB, or removable-volume filesystems reject hard links; v0.1 then uses an exclusive destination write that still prevents overwriting an existing file, but a process or host crash during that final write can leave a partial destination. Restart reconciliation treats an existing destination conservatively rather than automatically redispatching a paid request.
 
-Windows can also briefly deny rename or exclusive-open operations while security software or indexing inspects a new file. The Runtime retries only `EPERM`, `EBUSY`, and `EACCES` within a fixed approximately 1.5-second budget. It never retries `EEXIST`, so transient-error handling cannot turn a no-overwrite operation into a replacement write.
+Windows can also briefly deny rename or exclusive-open operations while security software or indexing inspects a new file. The Runtime retries only `EPERM`, `EBUSY`, and `EACCES`: ordinary operations use a fixed approximately 1.5-second budget, while atomic replacement of frequently updated state files uses a separate approximately five-second budget. It never retries `EEXIST`, so transient-error handling cannot turn a no-overwrite operation into a replacement write.
 
 ### Exclusive worker in v0.1
 

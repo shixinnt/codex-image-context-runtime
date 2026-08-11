@@ -772,13 +772,28 @@ export class ImageContextRuntime {
     }
   }
 
-  async waitForIdle(jobId, { timeoutMs = 5_000, intervalMs = 10 } = {}) {
+  async waitForIdle(jobId, { timeoutMs = 15_000, intervalMs = 100 } = {}) {
+    const id = assertSafeJobId(jobId);
     const deadline = Date.now() + timeoutMs;
     for (;;) {
-      const job = await this.store.requireJob(assertSafeJobId(jobId));
+      const active = this.active.get(id);
+      if (active?.promise) {
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) fail("WAIT_TIMEOUT", "job did not settle before timeout");
+        let timer;
+        const outcome = await Promise.race([
+          active.promise.then(() => "settled"),
+          new Promise((resolve) => { timer = setTimeout(() => resolve("timeout"), remaining); })
+        ]).finally(() => clearTimeout(timer));
+        if (outcome === "timeout") fail("WAIT_TIMEOUT", "job did not settle before timeout");
+      }
+      const job = await this.store.requireJob(id);
       if (TERMINAL_STATUSES.has(job.status)) return publicJobResult(job);
       if (Date.now() >= deadline) fail("WAIT_TIMEOUT", "job did not settle before timeout");
-      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      // A job without an in-process worker may have been created or resumed by
+      // recovery code. Poll that uncommon edge at a deliberately low rate so a
+      // Windows reader cannot starve atomic state-file replacement.
+      await new Promise((resolve) => setTimeout(resolve, Math.max(100, intervalMs)));
     }
   }
 }

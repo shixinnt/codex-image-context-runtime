@@ -10,6 +10,7 @@ const SECRET_MATERIAL = /(?:\bAuthorization\s*:\s*[^\r\n]+|\bBearer\s+\S+|\bsk-[
 const ABSOLUTE_TEXT_PATH = /(?:^|[\s("'`=:\[])(?:[A-Za-z]:[\\/]|\\\\|\/(?!\/)[^\/\s"'`<>|]+(?:\/[^\/\s"'`<>|]+)*)/m;
 const TRANSIENT_FS_CODES = new Set(["EPERM", "EBUSY", "EACCES"]);
 const DEFAULT_TRANSIENT_FS_DELAYS_MS = Object.freeze([15, 30, 60, 120, 240, 480, 600]);
+const ATOMIC_REPLACE_DELAYS_MS = Object.freeze([15, 30, 60, 120, 240, 480, 960, 1_200, 1_900]);
 
 export function isPlainObject(value) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
@@ -243,9 +244,24 @@ export async function atomicWriteJson(filePath, value) {
     } finally {
       await handle.close();
     }
-    await retryTransientFs(() => fs.rename(tempPath, filePath));
+    // Replacing a frequently updated state file is the operation most likely
+    // to be held briefly by Windows security/indexing software. Keep ordinary
+    // filesystem retries short, but give this atomic replacement a separate,
+    // still-bounded five-second budget. EEXIST is never retryable.
+    await retryTransientFs(() => fs.rename(tempPath, filePath), { delaysMs: ATOMIC_REPLACE_DELAYS_MS });
   } finally {
     await retryTransientFs(() => fs.rm(tempPath, { force: true })).catch(() => {});
+  }
+}
+
+export async function writeNewJson(filePath, value) {
+  await fs.mkdir(path.dirname(filePath), { recursive: true, mode: 0o700 });
+  const handle = await retryTransientFs(() => fs.open(filePath, "wx", 0o600));
+  try {
+    await handle.writeFile(`${JSON.stringify(value, null, 2)}\n`, "utf8");
+    await handle.sync();
+  } finally {
+    await handle.close();
   }
 }
 
