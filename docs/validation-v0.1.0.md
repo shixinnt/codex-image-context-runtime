@@ -52,4 +52,4 @@ This is not a Codex token, latency, memory, responsiveness, or native-image benc
 npm run check
 ```
 
-The repository CI repeats the offline release gates on Windows and Linux with Node.js 22.
+The repository CI repeats the offline release gates on Windows Server 2022 and Linux with Node.js 22.
