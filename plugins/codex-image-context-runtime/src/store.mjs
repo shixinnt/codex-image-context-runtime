@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { HANDOFF_MAX_BYTES, JOB_SCHEMA } from "./constants.mjs";
-import { assertSafeJobId, assertSafePublicText, atomicWriteJson, readBoundedBytes, readJsonFileBounded, sha256 } from "./safety.mjs";
+import { assertSafeJobId, assertSafePublicText, atomicWriteJson, readBoundedBytes, readJsonFileBounded, retryTransientFs, sha256 } from "./safety.mjs";
 import { fail } from "./errors.mjs";
 
 const HASH = /^sha256:[a-f0-9]{64}$/;
@@ -71,7 +71,7 @@ export class JobStore {
   }
 
   async deleteJobRecord(jobId) {
-    await fs.rm(this.jobPath(jobId), { force: true });
+    await retryTransientFs(() => fs.rm(this.jobPath(jobId), { force: true }));
   }
 
   async listJobs() {
@@ -108,7 +108,7 @@ export class JobStore {
       created_at: now
     };
     try {
-      const handle = await fs.open(filePath, "wx", 0o600);
+      const handle = await retryTransientFs(() => fs.open(filePath, "wx", 0o600));
       try {
         await handle.writeFile(`${JSON.stringify(reservation, null, 2)}\n`, "utf8");
         await handle.sync();
@@ -166,7 +166,7 @@ export class JobStore {
       created_at: now
     };
     try {
-      const handle = await fs.open(filePath, "wx", 0o600);
+      const handle = await retryTransientFs(() => fs.open(filePath, "wx", 0o600));
       try {
         await handle.writeFile(`${JSON.stringify(reservation, null, 2)}\n`, "utf8");
         await handle.sync();
@@ -197,7 +197,7 @@ export class JobStore {
     try {
       const current = await readJsonFileBounded(filePath, 16 * 1024);
       if (current.output_hash === outputHash && current.workspace_id === workspaceId && current.path_key === pathKey && current.job_id === jobId) {
-        await fs.rm(filePath, { force: true });
+        await retryTransientFs(() => fs.rm(filePath, { force: true }));
       }
     } catch {
       // A missing, malformed, or replaced reservation is never removed blindly.
@@ -220,10 +220,16 @@ export class JobStore {
     await fs.mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
     const temp = path.join(path.dirname(target), `.handoff.${process.pid}-${crypto.randomBytes(6).toString("hex")}.tmp`);
     try {
-      await fs.writeFile(temp, encoded, { flag: "wx", mode: 0o600 });
-      await fs.rename(temp, target);
+      const handle = await retryTransientFs(() => fs.open(temp, "wx", 0o600));
+      try {
+        await handle.writeFile(encoded);
+        await handle.sync();
+      } finally {
+        await handle.close();
+      }
+      await retryTransientFs(() => fs.rename(temp, target));
     } finally {
-      await fs.rm(temp, { force: true }).catch(() => {});
+      await retryTransientFs(() => fs.rm(temp, { force: true })).catch(() => {});
     }
     return this.handoffRef(jobId);
   }
@@ -253,7 +259,7 @@ export class JobStore {
       const token = crypto.randomBytes(24).toString("hex");
       const attempt = async () => {
         const tempPath = path.join(this.config.runtime_dir, `.runtime.lock.${pid}-${crypto.randomBytes(8).toString("hex")}.tmp`);
-        const handle = await fs.open(tempPath, "wx", 0o600);
+        const handle = await retryTransientFs(() => fs.open(tempPath, "wx", 0o600));
         try {
           await handle.writeFile(`${JSON.stringify({ pid, token, acquired_at: new Date().toISOString() })}\n`, "utf8");
           await handle.sync();
@@ -263,10 +269,10 @@ export class JobStore {
         try {
           // A hard link publishes the already-synced record atomically and never
           // overwrites another owner. A crash can leave only an ignorable temp.
-          await fs.link(tempPath, filePath);
+          await retryTransientFs(() => fs.link(tempPath, filePath));
           return { filePath, token, pid };
         } finally {
-          await fs.rm(tempPath, { force: true }).catch(() => {});
+          await retryTransientFs(() => fs.rm(tempPath, { force: true })).catch(() => {});
         }
       };
       try {
@@ -293,7 +299,7 @@ export class JobStore {
         alive = error?.code !== "ESRCH";
       }
       if (alive) fail("RUNTIME_ALREADY_RUNNING", "another process owns this runtime directory");
-      await fs.rm(filePath, { force: true });
+      await retryTransientFs(() => fs.rm(filePath, { force: true }));
       try {
         return await attempt();
       } catch {
@@ -307,7 +313,7 @@ export class JobStore {
     await this.withRuntimeLockGuard(async () => {
       try {
         const current = await readJsonFileBounded(lock.filePath, 16 * 1024);
-        if (current.pid === lock.pid && current.token === lock.token) await fs.rm(lock.filePath, { force: true });
+        if (current.pid === lock.pid && current.token === lock.token) await retryTransientFs(() => fs.rm(lock.filePath, { force: true }));
       } catch {
         // A missing or replaced lock is never removed blindly.
       }
@@ -317,7 +323,7 @@ export class JobStore {
   async withRuntimeLockGuard(operation) {
     const guardPath = path.join(this.config.runtime_dir, "runtime.lock.guard");
     try {
-      await fs.mkdir(guardPath);
+      await retryTransientFs(() => fs.mkdir(guardPath));
     } catch (error) {
       if (error?.code === "EEXIST") fail("RUNTIME_ALREADY_RUNNING", "runtime lock acquisition is already in progress");
       throw error;
@@ -326,7 +332,7 @@ export class JobStore {
       return await operation();
     } finally {
       // Never remove recursively: unexpected guard contents must fail closed.
-      await fs.rmdir(guardPath).catch(() => {});
+      await retryTransientFs(() => fs.rmdir(guardPath)).catch(() => {});
     }
   }
 }

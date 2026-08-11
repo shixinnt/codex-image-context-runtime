@@ -8,3 +8,4 @@ All notable changes to this project will be documented here.
 - Durable generation and inspection jobs with bounded text handoffs.
 - Offline mock provider and opt-in OpenAI provider.
 - Synthetic serialized-payload benchmark and privacy checks.
+- Bounded handling for transient Windows filesystem contention while preserving no-overwrite semantics.

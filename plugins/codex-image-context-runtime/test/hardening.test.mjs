@@ -11,7 +11,7 @@ import { RuntimeError } from "../src/errors.mjs";
 import { createMockProvider } from "../src/providers/mock.mjs";
 import { createOpenAIProvider } from "../src/providers/openai.mjs";
 import { ImageContextRuntime } from "../src/runtime.mjs";
-import { assertSafePublicText } from "../src/safety.mjs";
+import { assertSafePublicText, retryTransientFs } from "../src/safety.mjs";
 import { JobStore } from "../src/store.mjs";
 
 const CONFIG_SCHEMA = "codex-image-context-config-v1";
@@ -52,6 +52,33 @@ test("one runtime memoizes concurrent initialization", async (t) => {
   const [first, second] = await Promise.all([runtime.initialize(), runtime.initialize()]);
   assert.equal(first, runtime);
   assert.equal(second, runtime);
+});
+
+test("transient filesystem retries are bounded and never retry EEXIST", async () => {
+  const sleeps = [];
+  let transientAttempts = 0;
+  const recovered = await retryTransientFs(async () => {
+    transientAttempts += 1;
+    if (transientAttempts < 3) throw Object.assign(new Error("synthetic transient filesystem contention"), { code: "EPERM" });
+    return "recovered";
+  }, { delaysMs: [10, 20, 30], sleep: async (delayMs) => sleeps.push(delayMs) });
+  assert.equal(recovered, "recovered");
+  assert.equal(transientAttempts, 3);
+  assert.deepEqual(sleeps, [10, 20]);
+
+  let existsAttempts = 0;
+  await assert.rejects(retryTransientFs(async () => {
+    existsAttempts += 1;
+    throw Object.assign(new Error("destination exists"), { code: "EEXIST" });
+  }, { delaysMs: [0, 0], sleep: async () => {} }), (error) => error?.code === "EEXIST");
+  assert.equal(existsAttempts, 1, "no-overwrite EEXIST must never be retried");
+
+  let exhaustedAttempts = 0;
+  await assert.rejects(retryTransientFs(async () => {
+    exhaustedAttempts += 1;
+    throw Object.assign(new Error("persistent contention"), { code: "EBUSY" });
+  }, { delaysMs: [1, 2], sleep: async () => {} }), (error) => error?.code === "EBUSY");
+  assert.equal(exhaustedAttempts, 3, "the retry budget must remain finite");
 });
 
 test("configuration rejects overlapping roots and a runtime junction resolving inside a workspace", async () => {
@@ -135,7 +162,8 @@ test("output reservations conservatively fold filename case on every platform", 
   const rejected = [upper, lower].find((job) => job.status === "failed");
   assert.ok(accepted);
   assert.equal(rejected?.diagnostic?.code, "OUTPUT_RESERVED");
-  assert.equal((await runtime.waitForIdle(accepted.job_id)).status, "completed");
+  const settled = await runtime.waitForIdle(accepted.job_id);
+  assert.equal(settled.status, "completed", `winner failed with ${JSON.stringify(settled.diagnostic)}`);
   assert.equal(generationCalls, 1);
 });
 

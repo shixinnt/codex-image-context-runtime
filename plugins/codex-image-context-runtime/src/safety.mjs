@@ -8,6 +8,8 @@ const SAFE_JOB_ID = /^img_[A-Za-z0-9_-]{8,96}$/;
 const INLINE_MEDIA = /(?:data:(?:image|video|audio)\/|;base64,|\bbase64,|\biVBORw0KGgo[A-Za-z0-9+/=]{8,}|(?:^|\s)\/9j\/[A-Za-z0-9+/=]{8,}|\bUklGR[A-Za-z0-9+/=]{12,}|\bR0lGOD[A-Za-z0-9+/=]{12,})/im;
 const SECRET_MATERIAL = /(?:\bAuthorization\s*:\s*[^\r\n]+|\bBearer\s+\S+|\bsk-[A-Za-z0-9_-]{8,})/i;
 const ABSOLUTE_TEXT_PATH = /(?:^|[\s("'`=:\[])(?:[A-Za-z]:[\\/]|\\\\|\/(?!\/)[^\/\s"'`<>|]+(?:\/[^\/\s"'`<>|]+)*)/m;
+const TRANSIENT_FS_CODES = new Set(["EPERM", "EBUSY", "EACCES"]);
+const DEFAULT_TRANSIENT_FS_DELAYS_MS = Object.freeze([15, 30, 60, 120, 240, 480, 600]);
 
 export function isPlainObject(value) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
@@ -201,6 +203,29 @@ export function byteLengthJson(value) {
   return Buffer.byteLength(JSON.stringify(value), "utf8");
 }
 
+export async function retryTransientFs(operation, {
+  delaysMs = DEFAULT_TRANSIENT_FS_DELAYS_MS,
+  sleep = (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs))
+} = {}) {
+  if (typeof operation !== "function" || !Array.isArray(delaysMs) || typeof sleep !== "function") {
+    throw new TypeError("invalid transient filesystem retry configuration");
+  }
+  let retryIndex = 0;
+  for (;;) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (!TRANSIENT_FS_CODES.has(error?.code) || retryIndex >= delaysMs.length) throw error;
+      const delayMs = delaysMs[retryIndex];
+      retryIndex += 1;
+      if (!Number.isFinite(delayMs) || delayMs < 0 || delayMs > 2_000) {
+        throw new TypeError("invalid transient filesystem retry delay");
+      }
+      await sleep(delayMs);
+    }
+  }
+}
+
 export function assertBoundedPublicJson(value, maxBytes, label = "public result") {
   assertPublicValue(value, label);
   if (byteLengthJson(value) > maxBytes) fail("PUBLIC_RESULT_TOO_LARGE", `${label} exceeded its byte budget`);
@@ -211,18 +236,16 @@ export async function atomicWriteJson(filePath, value) {
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   const tempPath = path.join(path.dirname(filePath), `.${path.basename(filePath)}.${process.pid}-${crypto.randomBytes(8).toString("hex")}.tmp`);
   try {
-    await fs.writeFile(tempPath, `${JSON.stringify(value, null, 2)}\n`, { encoding: "utf8", flag: "wx", mode: 0o600 });
-    for (let attempt = 0; ; attempt += 1) {
-      try {
-        await fs.rename(tempPath, filePath);
-        break;
-      } catch (error) {
-        if (!new Set(["EPERM", "EBUSY", "EACCES"]).has(error.code) || attempt >= 5) throw error;
-        await new Promise((resolve) => setTimeout(resolve, 10 * (attempt + 1)));
-      }
+    const handle = await retryTransientFs(() => fs.open(tempPath, "wx", 0o600));
+    try {
+      await handle.writeFile(`${JSON.stringify(value, null, 2)}\n`, "utf8");
+      await handle.sync();
+    } finally {
+      await handle.close();
     }
+    await retryTransientFs(() => fs.rename(tempPath, filePath));
   } finally {
-    await fs.rm(tempPath, { force: true }).catch(() => {});
+    await retryTransientFs(() => fs.rm(tempPath, { force: true })).catch(() => {});
   }
 }
 
@@ -232,7 +255,7 @@ export async function atomicWriteNewBytes(filePath, bytes, token) {
   const safeToken = String(token).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80) || "artifact";
   const tempPath = path.join(path.dirname(filePath), `.${path.basename(filePath)}.${safeToken}.${process.pid}.tmp`);
   try {
-    const handle = await fs.open(tempPath, "wx", 0o600);
+    const handle = await retryTransientFs(() => fs.open(tempPath, "wx", 0o600));
     try {
       await handle.writeFile(bytes);
       await handle.sync();
@@ -246,7 +269,7 @@ export async function atomicWriteNewBytes(filePath, bytes, token) {
       if (!new Set(["EPERM", "EACCES", "ENOTSUP", "EOPNOTSUPP", "EXDEV", "EINVAL"]).has(error.code)) throw error;
       // Some valid Windows/SMB workspaces do not support hard links. Preserve
       // no-overwrite semantics with an exclusive destination handle.
-      const output = await fs.open(filePath, "wx", 0o600);
+      const output = await retryTransientFs(() => fs.open(filePath, "wx", 0o600));
       try {
         await output.writeFile(bytes);
         await output.sync();
@@ -258,7 +281,7 @@ export async function atomicWriteNewBytes(filePath, bytes, token) {
     if (error.code === "EEXIST") fail("OUTPUT_ALREADY_EXISTS", "output path already exists");
     throw error;
   } finally {
-    await fs.rm(tempPath, { force: true }).catch(() => {});
+    await retryTransientFs(() => fs.rm(tempPath, { force: true })).catch(() => {});
   }
 }
 

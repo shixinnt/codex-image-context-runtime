@@ -7,7 +7,7 @@ Scope: public source tree at release candidate `v0.1.0`
 
 | Gate | Result |
 |---|---:|
-| Plugin runtime and hardening tests | 27 / 27 passed |
+| Plugin runtime and hardening tests | 28 / 28 passed |
 | Repository, benchmark, packaging, and privacy tests | 15 / 15 passed |
 | Deterministic benchmark verifier | PASS |
 | Public-tree privacy and secret-shape audit | PASS |
@@ -23,6 +23,7 @@ The default test suite used Node.js 22, deterministic local Providers, temporary
 - generation and inspection persistence;
 - idempotent replay and crash-window recovery;
 - output reservation, case aliases, filesystem aliases, and no-overwrite behavior;
+- bounded retry of transient Windows filesystem contention without retrying destination-exists errors;
 - restart reconciliation and ambiguous-dispatch fail-safe behavior;
 - exclusive Runtime ownership and concurrent stale-lock takeover;
 - pre-dispatch cancellation and reservation release;
