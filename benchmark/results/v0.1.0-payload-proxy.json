@@ -1,0 +1,110 @@
+{
+  "schema": "codex-image-context-payload-proxy-v1",
+  "benchmark": "serialized-mcp-result-payload-proxy",
+  "metric": "utf8_bytes_of_json_serialized_mcp_tool_results",
+  "options": {
+    "jobs": 20,
+    "image_bytes_each": 1048576,
+    "handoff_utf8_bytes": 512,
+    "seed": 20260811
+  },
+  "execution": {
+    "synthetic_bytes_generated_in_memory": true,
+    "network_calls": 0,
+    "provider_calls": 0
+  },
+  "artifact": {
+    "count": 20,
+    "bytes_each": 1048576,
+    "raw_bytes_total": 20971520,
+    "base64_chars_each": 1398104,
+    "sha256": "sha256:430526323e80ee9d68d101bcdf6d81686b09429d46adaeadb97f94c8be5f6362"
+  },
+  "baseline": {
+    "id": "naive-inline-image-result",
+    "result_count": 60,
+    "total_result_bytes": 27990140,
+    "maximum_single_result_bytes": 1398617,
+    "inline_image_blocks": 20,
+    "inline_image_base64_chars": 27962080
+  },
+  "candidate": {
+    "id": "reference-only-result",
+    "result_count": 60,
+    "total_result_bytes": 27060,
+    "maximum_single_result_bytes": 739,
+    "inline_image_blocks": 0,
+    "inline_image_base64_chars": 0
+  },
+  "comparison": {
+    "reduction_percent": 99.903323,
+    "candidate_to_baseline_ratio": 0.000966769
+  },
+  "scaling": {
+    "entries": [
+      {
+        "image_bytes": 65536,
+        "baseline_total_result_bytes": 88785,
+        "candidate_total_result_bytes": 1351
+      },
+      {
+        "image_bytes": 1048576,
+        "baseline_total_result_bytes": 1399507,
+        "candidate_total_result_bytes": 1353
+      },
+      {
+        "image_bytes": 4194304,
+        "baseline_total_result_bytes": 5593811,
+        "candidate_total_result_bytes": 1353
+      }
+    ],
+    "candidate_payload_delta_bytes": 2,
+    "baseline_payload_delta_bytes": 5505026
+  },
+  "limitations": [
+    "This measures serialized MCP tool-result bytes, not Codex tokens, latency, memory, or responsiveness.",
+    "The baseline is a deliberately naive inline-image MCP result, not Codex native image handling.",
+    "The candidate is a self-contained reference-only transport model, not an integration test of the plugin runtime.",
+    "Explicitly opening an image in Codex can still add visual context."
+  ],
+  "verification": {
+    "passed": true,
+    "thresholds": {
+      "minimum_reduction_percent": 99,
+      "maximum_candidate_result_bytes": 32768,
+      "maximum_candidate_scaling_delta_bytes": 128
+    },
+    "checks": [
+      {
+        "id": "minimum_reduction_percent",
+        "passed": true,
+        "actual": 99.903323,
+        "expected": ">= 99"
+      },
+      {
+        "id": "maximum_candidate_result_bytes",
+        "passed": true,
+        "actual": 739,
+        "expected": "<= 32768"
+      },
+      {
+        "id": "maximum_candidate_scaling_delta_bytes",
+        "passed": true,
+        "actual": 2,
+        "expected": "<= 128"
+      },
+      {
+        "id": "candidate_has_no_inline_image_blocks",
+        "passed": true,
+        "actual": 0,
+        "expected": "0"
+      },
+      {
+        "id": "no_external_calls",
+        "passed": true,
+        "actual": 0,
+        "expected": "0"
+      }
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "codex-image-context-runtime",
+  "version": "0.1.0",
+  "description": "Context-bounded image generation and inspection through durable local jobs.",
+  "author": {
+    "name": "Image Context Runtime contributors"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "codex",
+    "mcp",
+    "image-generation",
+    "image-inspection",
+    "context-management",
+    "storyboard",
+    "visual-qa"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Codex Image Context Runtime",
+    "shortDescription": "Bounded, resumable image jobs",
+    "longDescription": "Generate and inspect images through durable local jobs that return bounded text receipts, hashes, references, and Job IDs instead of media payloads.",
+    "developerName": "Image Context Runtime contributors",
+    "category": "Creativity",
+    "capabilities": [
+      "Generate images",
+      "Inspect images",
+      "Resume image jobs"
+    ],
+    "defaultPrompt": [
+      "Generate an image as a durable job and return only its Job ID.",
+      "Inspect a workspace image and return a bounded text handoff."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

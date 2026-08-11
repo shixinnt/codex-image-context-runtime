@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "image_context_runtime": {
+      "cwd": ".",
+      "command": "node",
+      "args": [
+        "./mcp/server.mjs"
+      ],
+      "env_vars": [
+        "OPENAI_API_KEY",
+        "CODEX_IMAGE_CONTEXT_HOME",
+        "PLUGIN_DATA",
+        "CLAUDE_PLUGIN_DATA",
+        "CODEX_IMAGE_CONTEXT_CONFIG",
+        "CODEX_IMAGE_CONTEXT_PROVIDER",
+        "CODEX_IMAGE_CONTEXT_ROOTS",
+        "CODEX_IMAGE_CONTEXT_IMAGE_MODEL",
+        "CODEX_IMAGE_CONTEXT_VISION_MODEL"
+      ],
+      "tool_timeout_sec": 900
+    }
+  }
+}

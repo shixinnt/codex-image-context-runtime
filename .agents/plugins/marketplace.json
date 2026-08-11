@@ -1,0 +1,20 @@
+{
+  "name": "codex-image-context-runtime",
+  "interface": {
+    "displayName": "Codex Image Context Runtime"
+  },
+  "plugins": [
+    {
+      "name": "codex-image-context-runtime",
+      "source": {
+        "source": "local",
+        "path": "./plugins/codex-image-context-runtime"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Creativity"
+    }
+  ]
+}

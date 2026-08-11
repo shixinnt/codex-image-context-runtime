@@ -1,0 +1,44 @@
+# Local development and editor state
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.tmp
+
+# Dependencies, caches, and test output
+node_modules/
+coverage/
+.nyc_output/
+.cache/
+reports/
+*.log
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.token
+*.secret
+**/.mcp.local.json
+
+# Runtime-owned data; never source-controlled
+instances/
+state/
+jobs/
+artifacts/
+media/
+runtime-data/
+provider-responses/
+
+# Platform build output
+dist/
+build/
+out/
+*.tgz
+*.zip
