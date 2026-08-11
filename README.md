@@ -4,6 +4,10 @@
 
 **Keep image-heavy Codex workflows responsive, resumable, and context-bounded.**
 
+![A conceptual workstation comparison of image-heavy Codex tasks with and without Image Context Runtime](docs/assets/image-context-runtime-workstation-comparison.png)
+
+*Fictional concept interface—not an actual Codex UI or a measured context, token, speed, or latency benchmark.*
+
 Image Context Runtime for Codex is an experimental open-source Codex plugin backed by a durable local MCP runtime. It runs image generation and inspection as persisted jobs, keeps provider-returned media bytes behind the public MCP boundary, and returns only bounded text results, hashes, relative references, and Job IDs.
 
 Use it when Codex is:

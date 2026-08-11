@@ -4,6 +4,10 @@
 
 **让大量生图、读图工作保持有界、可恢复，而不是让媒体载荷持续进入主任务。**
 
+![大量图片任务在使用与未使用 Image Context Runtime 时的概念工作台对比](docs/assets/image-context-runtime-workstation-comparison.png)
+
+*虚构概念界面；并非真实 Codex UI，也不是上下文、token、速度或延迟的实测基准。*
+
 Codex 图片上下文运行时是一个实验性的开源 Codex 插件，后端由本地持久化 MCP 运行时驱动。它把图片生成与图片检查作为独立 Job 执行，将 Provider 返回的图片字节保留在公共 MCP 边界之外，只向 Codex 返回小型文本结果、哈希、相对引用和 Job ID。
 
 适用场景包括：

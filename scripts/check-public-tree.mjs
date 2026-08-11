@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +9,12 @@ import { fileURLToPath } from "node:url";
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const DEFAULT_ROOT = path.resolve(path.dirname(SCRIPT_PATH), "..");
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+// Public binary assets are accepted only after manual review and only at their
+// exact audited digest. Any new or modified binary must be reviewed explicitly.
+const REVIEWED_BINARY_SHA256 = new Map([
+  ["docs/assets/image-context-runtime-workstation-comparison.png", "f722296aaa4c7de062bd82def947a53c9c7ddc732b9c3a6c25a3f9723960ee37"]
+]);
 
 const SKIPPED_DIRECTORIES = new Set([
   ".git",
@@ -105,6 +112,12 @@ export async function scanPublicTree(root = DEFAULT_ROOT) {
     }
 
     const bytes = await fs.readFile(file.absolute);
+    const reviewedDigest = REVIEWED_BINARY_SHA256.get(file.relative);
+    if (reviewedDigest) {
+      const actualDigest = createHash("sha256").update(bytes).digest("hex");
+      if (actualDigest !== reviewedDigest) addFinding(findings, "reviewed-binary-hash-mismatch", file.relative);
+      continue;
+    }
     if (bytes.includes(0)) {
       addFinding(findings, "binary-review-required", file.relative);
       continue;
