@@ -17,6 +17,9 @@
   ],
   "skills": "./skills/",
   "interface": {
+    "brandColor": "#32C2BA",
+    "logo": "./assets/logo.svg",
+    "composerIcon": "./assets/logo.svg",
     "displayName": "Codex Image Context Runtime",
     "shortDescription": "Bounded, resumable image jobs",
     "longDescription": "Generate and inspect images through durable local jobs that return bounded text receipts, hashes, references, and Job IDs instead of media payloads.",

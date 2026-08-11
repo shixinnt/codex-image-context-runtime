@@ -13,6 +13,7 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024;
 // Public binary assets are accepted only after manual review and only at their
 // exact audited digest. Any new or modified binary must be reviewed explicitly.
 const REVIEWED_BINARY_SHA256 = new Map([
+  ["docs/assets/github-social-preview.png", "cf6fe5649083fe66913806c8d07e938987b60885b19940a6773633030d551500"],
   ["docs/assets/image-context-runtime-workstation-comparison.png", "f722296aaa4c7de062bd82def947a53c9c7ddc732b9c3a6c25a3f9723960ee37"]
 ]);
 

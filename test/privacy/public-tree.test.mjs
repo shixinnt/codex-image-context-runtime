@@ -47,21 +47,29 @@ test("personal paths, email addresses, and secret shapes are rejected without ec
   assert.ok(findings.every((finding) => !JSON.stringify(finding).includes(secretShape)));
 });
 
-test("reviewed public artwork is accepted only at its audited digest", async (t) => {
-  const root = await temporaryTree("reviewed-artwork");
-  t.after(() => fs.rm(root, { recursive: true, force: true }));
+test("reviewed public artwork is accepted only at its audited digest", async () => {
+  const reviewedArtwork = [
+    "docs/assets/github-social-preview.png",
+    "docs/assets/image-context-runtime-workstation-comparison.png"
+  ];
 
-  const relative = "docs/assets/image-context-runtime-workstation-comparison.png";
-  const source = path.join(REPOSITORY_ROOT, ...relative.split("/"));
-  const destination = path.join(root, ...relative.split("/"));
-  await fs.mkdir(path.dirname(destination), { recursive: true });
-  const bytes = await fs.readFile(source);
-  await fs.writeFile(destination, bytes);
-  assert.deepEqual(await scanPublicTree(root), []);
+  for (const [index, relative] of reviewedArtwork.entries()) {
+    const root = await temporaryTree(`reviewed-artwork-${index}`);
+    try {
+      const source = path.join(REPOSITORY_ROOT, ...relative.split("/"));
+      const destination = path.join(root, ...relative.split("/"));
+      await fs.mkdir(path.dirname(destination), { recursive: true });
+      const bytes = await fs.readFile(source);
+      await fs.writeFile(destination, bytes);
+      assert.deepEqual(await scanPublicTree(root), []);
 
-  bytes[bytes.length - 1] ^= 1;
-  await fs.writeFile(destination, bytes);
-  assert.ok((await scanPublicTree(root)).some((finding) => finding.kind === "reviewed-binary-hash-mismatch"));
+      bytes[bytes.length - 1] ^= 1;
+      await fs.writeFile(destination, bytes);
+      assert.ok((await scanPublicTree(root)).some((finding) => finding.kind === "reviewed-binary-hash-mismatch"));
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  }
 });
 
 test("the repository passes its own public-tree and Git metadata audit", async () => {

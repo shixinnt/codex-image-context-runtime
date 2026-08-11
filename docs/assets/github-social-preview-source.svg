@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
+  <title id="title">Image Context Runtime for Codex social preview</title>
+  <desc id="desc">Project logo beside the title and the phrase bounded, resumable image jobs.</desc>
+  <defs>
+    <linearGradient id="pageBg" x1="0" y1="0" x2="1280" y2="640" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#071017"/>
+      <stop offset="0.55" stop-color="#0B1520"/>
+      <stop offset="1" stop-color="#101D2D"/>
+    </linearGradient>
+    <radialGradient id="pageGlow" cx="0" cy="0" r="1" gradientTransform="translate(390 324) rotate(6) scale(650 470)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#35DACE" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#35DACE" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="iconBg" x1="96" y1="80" x2="928" y2="944" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#111D2C"/>
+      <stop offset="0.56" stop-color="#0B1520"/>
+      <stop offset="1" stop-color="#071017"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="232" y1="198" x2="786" y2="824" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#75F2E6"/>
+      <stop offset="0.52" stop-color="#39D6CE"/>
+      <stop offset="1" stop-color="#4D9EFF"/>
+    </linearGradient>
+    <linearGradient id="media" x1="350" y1="276" x2="676" y2="548" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#183B59"/>
+      <stop offset="0.5" stop-color="#245D78"/>
+      <stop offset="1" stop-color="#17424C"/>
+    </linearGradient>
+    <radialGradient id="iconHalo" cx="0" cy="0" r="1" gradientTransform="translate(520 472) rotate(90) scale(420)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3EE2D4" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#3EE2D4" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="28" stdDeviation="32" flood-color="#000A0E" flood-opacity="0.55"/>
+    </filter>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="11" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#pageBg)"/>
+  <rect x="20" y="20" width="1240" height="600" rx="36" fill="none" stroke="#FFFFFF" stroke-opacity="0.07" stroke-width="2"/>
+  <ellipse cx="390" cy="324" rx="660" ry="470" fill="url(#pageGlow)"/>
+  <path d="M0 538C230 480 376 580 606 522C860 458 1042 492 1280 424" fill="none" stroke="#45DDD3" stroke-opacity="0.08" stroke-width="2"/>
+
+  <!-- Project logo -->
+  <g transform="translate(48 78) scale(.47)">
+    <rect x="32" y="32" width="960" height="960" rx="236" fill="url(#iconBg)"/>
+    <rect x="48" y="48" width="928" height="928" rx="220" fill="none" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="4"/>
+    <circle cx="520" cy="472" r="420" fill="url(#iconHalo)"/>
+    <path d="M337 196H274C241 196 218 220 218 253V771C218 804 241 828 274 828H337" fill="none" stroke="url(#accent)" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M687 196H750C783 196 806 220 806 253V401" fill="none" stroke="url(#accent)" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M806 620V771C806 804 783 828 750 828H687" fill="none" stroke="url(#accent)" stroke-width="58" stroke-linecap="round" stroke-linejoin="round"/>
+    <g filter="url(#shadow)">
+      <rect x="326" y="250" width="386" height="318" rx="72" fill="#0A121B" stroke="#D9FFFB" stroke-opacity="0.94" stroke-width="18"/>
+      <rect x="348" y="272" width="342" height="274" rx="52" fill="url(#media)"/>
+      <circle cx="584" cy="346" r="38" fill="#98FFF4"/>
+      <path d="M372 510L457 402L525 481L580 421L666 510V523H372Z" fill="#E9FFFC"/>
+      <path d="M372 510L457 402L525 481L580 421L666 510" fill="none" stroke="#C5F8F3" stroke-width="15" stroke-linejoin="round"/>
+    </g>
+    <g fill="none" stroke-linecap="round">
+      <path d="M356 658H668" stroke="#E8FFFC" stroke-width="30"/>
+      <path d="M356 724H612" stroke="#78EADF" stroke-width="30"/>
+      <path d="M356 790H532" stroke="#4CA8FF" stroke-width="30"/>
+    </g>
+    <path d="M712 510H836" stroke="#42DDD3" stroke-width="20" stroke-linecap="round"/>
+    <circle cx="865" cy="510" r="65" fill="#0B1820" stroke="#57E9DD" stroke-width="20" filter="url(#softGlow)"/>
+    <circle cx="865" cy="510" r="19" fill="#8EFFF3"/>
+  </g>
+
+  <!-- Project positioning -->
+  <g font-family="Inter, Segoe UI, Arial, sans-serif">
+    <text x="558" y="142" fill="#66E7DC" font-size="22" font-weight="700" letter-spacing="3.8">INDEPENDENT OPEN-SOURCE PLUGIN</text>
+    <text x="554" y="248" fill="#F3FBFA" font-size="68" font-weight="750" letter-spacing="-2.6">Image Context</text>
+    <text x="554" y="326" fill="#F3FBFA" font-size="68" font-weight="750" letter-spacing="-2.6">Runtime for Codex</text>
+    <text x="558" y="389" fill="#AFC2CA" font-size="30" font-weight="450">Bounded, resumable image jobs</text>
+
+    <g font-size="17" font-weight="700" letter-spacing="1.7">
+      <rect x="558" y="432" width="142" height="48" rx="24" fill="#123035" stroke="#4ADFD4" stroke-opacity="0.55"/>
+      <text x="629" y="463" fill="#9AF8F0" text-anchor="middle">GENERATE</text>
+      <rect x="714" y="432" width="132" height="48" rx="24" fill="#123035" stroke="#4ADFD4" stroke-opacity="0.55"/>
+      <text x="780" y="463" fill="#9AF8F0" text-anchor="middle">INSPECT</text>
+      <rect x="860" y="432" width="128" height="48" rx="24" fill="#12283D" stroke="#52A8FF" stroke-opacity="0.6"/>
+      <text x="924" y="463" fill="#A7D4FF" text-anchor="middle">RESUME</text>
+    </g>
+
+    <line x1="558" y1="524" x2="1168" y2="524" stroke="#FFFFFF" stroke-opacity="0.13"/>
+    <text x="558" y="566" fill="#7F969F" font-size="21" font-weight="500">Codex plugin + local MCP runtime</text>
+    <text x="1168" y="566" fill="#52747D" font-size="18" font-weight="500" text-anchor="end">codex-image-context-runtime</text>
+  </g>
+</svg>

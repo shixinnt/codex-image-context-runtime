@@ -1,5 +1,9 @@
 [简体中文](README.zh-CN.md)
 
+<p align="center">
+  <img src="plugins/codex-image-context-runtime/assets/logo.svg" alt="Image Context Runtime logo" width="144">
+</p>
+
 # Image Context Runtime for Codex
 
 **Keep image-heavy Codex workflows responsive, resumable, and context-bounded.**
@@ -193,4 +197,4 @@ v0.1 is an experimental public baseline. Review the threat model and data path b
 
 ## License
 
-Apache License 2.0.
+Apache License 2.0. This independent project is not affiliated with or endorsed by OpenAI.

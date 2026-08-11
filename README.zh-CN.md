@@ -1,5 +1,9 @@
 [English](README.md)
 
+<p align="center">
+  <img src="plugins/codex-image-context-runtime/assets/logo.svg" alt="Image Context Runtime 项目图标" width="144">
+</p>
+
 # Codex 图片上下文运行时
 
 **让大量生图、读图工作保持有界、可恢复，而不是让媒体载荷持续进入主任务。**
@@ -109,3 +113,5 @@ Runtime 会在本地持久化 prompt、检查问题、相对引用与 Provider �
 仓库内的可复现 v0.1 场景模拟 20 个各含 1 MiB 合成图片的 Job。朴素的内联图片 MCP 结果共 27,990,140 字节，引用式结果共 27,060 字节，在这项特定的 JSON 序列化结果载荷对比中减少 99.903%。
 
 这不是 Codex token、延迟、内存、响应速度或原生图片处理的测量。详见英文 [benchmark 方法](docs/benchmark-methodology.md) 和机器可读报告。
+
+本项目采用 Apache License 2.0，是独立开源项目，与 OpenAI 无隶属关系，也未获得 OpenAI 背书。
