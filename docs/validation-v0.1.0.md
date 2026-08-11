@@ -16,6 +16,8 @@ Scope: public source tree at release candidate `v0.1.0`
 
 The default test suite used Node.js 22, deterministic local Providers, temporary generic fixtures, and zero live Provider calls. The OpenAI adapter was tested with injected local fetch doubles; no credential or network access was required.
 
+The two stateful test files run serially to avoid cross-worker antivirus/indexer contention on hosted Windows filesystems. Concurrency behavior remains covered inside individual tests with simultaneous submissions, Provider permits, output-reservation races, and stale-lock takeover contenders.
+
 ## Contracts covered
 
 - text-only, size-bounded MCP results and handoffs;
