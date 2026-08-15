@@ -33,7 +33,7 @@ Codex 图片上下文运行时是一个实验性的开源 Codex 插件，后端�
 
 因此它不是单纯的生图 MCP 包装器，而是带有持久任务、幂等、重启恢复和有界文本交接的图片工作流基础设施。
 
-## v0.1 范围
+## v0.2 范围
 
 - 文生图 Job
 - 图片检查 Job
@@ -44,15 +44,17 @@ Codex 图片上下文运行时是一个实验性的开源 Codex 插件，后端�
 - 可选 OpenAI Provider
 - 32 KiB 公共 MCP 结果上限
 - 16 KiB 文本交接上限
+- 多个 Codex 任务桥接进程共享一个经过认证的本地 Broker
+- Job 游标分页与显式、隐私最小化的终态记录压缩
 
-视频生成不属于 v0.1。
+视频生成不属于 v0.2。
 
 ## 安装与配置
 
 先 clone 已发布的标签，再从仓库根目录执行命令。配置助手需要在 Codex 外运行，因此需要本地 clone：
 
 ~~~powershell
-git clone --depth 1 --branch v0.1.1 https://github.com/shixinnt/codex-image-context-runtime.git
+git clone --depth 1 --branch v0.2.0 https://github.com/shixinnt/codex-image-context-runtime.git
 cd codex-image-context-runtime
 ~~~
 
@@ -93,6 +95,14 @@ npm run doctor
 npm run doctor -- --json
 ~~~
 
+先以 dry-run 方式预览隐私最小化的 Job 记录压缩，不修改数据：
+
+~~~powershell
+npm run compact -- --older-than-days 30 --limit 25 --json
+~~~
+
+如需执行，请先停止使用该配置的 Codex 任务并等待 Broker 退出，检查预览结果后再加 `--apply`。压缩会保留 retired 幂等 tombstone 与精简 artifact receipt，不会删除 workspace 图片，也不承诺安全擦除。
+
 Bash 环境可在启动 Codex 前设置 Key：
 
 ~~~sh
@@ -106,7 +116,7 @@ npm run configure -- --workspace "/path/to/your/project" --provider openai
 
 ~~~powershell
 git fetch --tags
-git checkout v0.1.1
+git checkout v0.2.0
 codex plugin remove codex-image-context-runtime@codex-image-context-runtime
 codex plugin add codex-image-context-runtime@codex-image-context-runtime
 ~~~
@@ -115,13 +125,13 @@ codex plugin add codex-image-context-runtime@codex-image-context-runtime
 
 Runtime 会在本地持久化 prompt、检查问题、相对引用与 Provider 状态，请把 Runtime 目录当作项目数据保护。
 
-## v0.1 并发边界
+## v0.2 共享 Runtime 边界
 
-同一个 Runtime 目录同时只允许一个 MCP worker。第二个进程会以 <code>runtime_already_running</code> 失败关闭，不会误判、接管或重复派发另一个活跃 worker 的 Job；原进程退出后，下一次启动可恢复失效的 PID 锁。
+每个 Codex 任务仍使用独立的轻量 stdio MCP 桥接进程；使用同一固定配置的桥接进程会认证并连接到一个仅监听 IPv4 loopback 的 Broker。Broker 独占持久 Runtime worker、Provider 并发信号量、幂等索引与输出占用记录，因此多个任务不会把彼此的活跃 Job 误判为中断任务。
 
-如果进程恰好在毫秒级的锁接管临界区被强制终止，可能留下空的 <code>runtime.lock.guard</code> 目录。请先确认没有 worker 正在运行，再手工删除该 guard；Runtime 不会猜测 acquisition guard 已经失效。
+Broker token 与配置哈希保存在 Runtime 目录内的 owner-only descriptor 中。未认证连接时间、单客户端在途请求、响应缓冲和 stdio 到 socket 的背压均有界。Broker 不开放 LAN 或远程访问，也不能防御以同一操作系统用户身份运行并可读取 Runtime 目录的其它进程。
 
-如需同时运行多个 Codex 任务，请为它们使用不同的配置与 Runtime 目录。共享多客户端 broker 属于后续路线图，v0.1 不把进程内协调包装成跨会话并发能力。
+最后一个桥接进程断开且活跃 Job 结束后，Broker 会在有界空闲时间后退出。Provider 派发后的强制中断仍会进入 <code>needs_review</code>，不会自动重复付费请求。
 
 ## 准确的能力边界
 

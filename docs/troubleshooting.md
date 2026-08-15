@@ -1,6 +1,6 @@
 # Troubleshooting
 
-This guide applies to version 0.1.1. Commands are run from a local clone of the repository.
+This guide applies to version 0.2.0. Commands are run from a local clone of the repository.
 
 ## Run the privacy-safe doctor
 
@@ -37,7 +37,11 @@ The OpenAI provider is configured, but the Codex process cannot read `OPENAI_API
 
 ## `runtime_already_running`
 
-Version 0.1.1 permits one active MCP worker per Runtime directory. Close the other Codex task or configure a separate Runtime directory. Do not delete a live worker's lock.
+Version 0.2.0 permits one Broker-owned Runtime worker while multiple authenticated stdio bridges share it. If this error appears during ordinary Codex use, run `npm run doctor -- --json`; a live Broker-owned lock is normal, while an unavailable Broker or leftover acquisition guard requires investigation. Do not delete a live worker's lock.
+
+## `broker_unavailable`
+
+The stdio bridge could not authenticate to the descriptor or start one Broker within the bounded startup interval. Stop Codex tasks using this configuration, run the privacy-safe doctor, and verify that the Runtime directory is writable by the current user. A malformed or configuration-mismatched descriptor fails closed and is never deleted blindly.
 
 ## `runtime_lock_guard_present`
 

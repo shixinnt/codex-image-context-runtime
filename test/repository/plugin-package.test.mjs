@@ -38,7 +38,7 @@ test("plugin manifest, MCP config, and skill agree", async () => {
   const pluginRoot = path.join(ROOT, "plugins", "codex-image-context-runtime");
   const manifest = await readJson(path.join(pluginRoot, ".codex-plugin", "plugin.json"));
   assert.equal(manifest.name, "codex-image-context-runtime");
-  assert.equal(manifest.version, "0.1.1");
+  assert.equal(manifest.version, "0.2.0");
   assert.equal(manifest.skills, "./skills/");
   assert.equal(manifest.mcpServers, "./.mcp.json");
   assert.deepEqual(manifest.interface.capabilities, [
@@ -117,6 +117,8 @@ test("release support and community files are present", async () => {
     "SECURITY.md",
     "CODE_OF_CONDUCT.md",
     "docs/design-v0.2.md",
+    "docs/claims-v0.2.md",
+    "docs/validation-v0.2.0.md",
     "docs/troubleshooting.md",
     ".github/ISSUE_TEMPLATE/bug_report.yml",
     ".github/ISSUE_TEMPLATE/installation_help.yml",

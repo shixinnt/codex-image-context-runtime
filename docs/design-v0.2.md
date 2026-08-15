@@ -1,6 +1,6 @@
 # v0.2 Design: Shared Runtime, Retention, and MCP Compatibility
 
-Status: implementation design
+Status: v0.2.0 release candidate
 
 ## User problem
 

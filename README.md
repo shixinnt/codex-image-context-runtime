@@ -47,7 +47,7 @@ durable local jobs ----> optional OpenAI API
 
 The plugin is the installable workflow. MCP is the tool boundary. The Runtime owns Job state, controls media transfer, and writes generated artifacts only to configured workspace-relative paths.
 
-## Public v0.1 scope
+## Public v0.2 scope
 
 - Text-to-image jobs.
 - Image inspection jobs.
@@ -57,8 +57,10 @@ The plugin is the installable workflow. MCP is the tool boundary. The Runtime ow
 - Offline deterministic mock provider.
 - Optional OpenAI Image API and Responses API provider.
 - Strict public-result budgets with no MCP image, audio, or resource blocks.
+- One authenticated loopback broker shared safely by multiple Codex task bridges.
+- Cursor-based Job history and explicit privacy-minimizing terminal-record compaction.
 
-Video generation is intentionally out of scope for v0.1.
+Video generation is intentionally out of scope for v0.2.
 
 ## Requirements
 
@@ -72,7 +74,7 @@ Video generation is intentionally out of scope for v0.1.
 Clone the tagged release, then run the following commands from its root. The configuration helper runs outside Codex, so a local clone is required:
 
 ~~~powershell
-git clone --depth 1 --branch v0.1.1 https://github.com/shixinnt/codex-image-context-runtime.git
+git clone --depth 1 --branch v0.2.0 https://github.com/shixinnt/codex-image-context-runtime.git
 cd codex-image-context-runtime
 ~~~
 
@@ -115,6 +117,14 @@ npm run doctor
 npm run doctor -- --json
 ~~~
 
+Preview privacy-minimizing Job-record compaction without changing data:
+
+~~~powershell
+npm run compact -- --older-than-days 30 --limit 25 --json
+~~~
+
+To apply a bounded batch, stop Codex tasks using the configuration, wait for the Broker to exit, review the dry run, then add `--apply`. Compaction keeps retired idempotency tombstones and compact artifact receipts; it does not delete workspace images or guarantee secure erasure.
+
 For Bash-compatible shells, export the key before starting Codex:
 
 ~~~sh
@@ -128,7 +138,7 @@ Stop active image jobs, update the clone to the new tag, then refresh the instal
 
 ~~~powershell
 git fetch --tags
-git checkout v0.1.1
+git checkout v0.2.0
 codex plugin remove codex-image-context-runtime@codex-image-context-runtime
 codex plugin add codex-image-context-runtime@codex-image-context-runtime
 ~~~
@@ -181,15 +191,15 @@ The runtime can still send an image to an explicitly enabled remote provider for
 
 The local job records persist prompts, inspection questions, relative references, and provider state. Protect the configured Runtime directory as project data.
 
-## v0.1 concurrency boundary
+## v0.2 shared Runtime boundary
 
-One Runtime directory has exactly one active MCP worker. A second process targeting the same directory fails closed with <code>runtime_already_running</code> instead of reconciling or redispatching another live worker's jobs. A dead owner's stale PID lock is recovered on the next start.
+Each Codex task receives a thin stdio MCP bridge. Bridges using the same fixed configuration authenticate to one IPv4-loopback broker, which owns the only durable Runtime worker, Provider semaphore, idempotency index, and output reservations. Concurrent bridge startup converges on one broker owner instead of treating another task's live Job as interrupted.
 
-If a process is forcibly killed during the millisecond-scale lock-takeover critical section, an empty <code>runtime.lock.guard</code> directory can remain. Verify that no worker is running before removing that guard manually; the Runtime never guesses that an acquisition guard is stale.
+The broker token and configuration hash are stored in an owner-only descriptor in the Runtime directory. Authentication time, per-client in-flight work, response buffering, and stdio-to-socket pressure are bounded. The broker listens only on <code>127.0.0.1</code>; it is not a remote service or a sandbox against another process running as the same operating-system user.
 
-For simultaneous Codex tasks, use distinct configuration and Runtime directories. A shared multi-client broker is a later roadmap item; v0.1 does not pretend that process-local coordination is cross-session coordination.
+After the last bridge disconnects and active Jobs settle, the broker shuts down after a bounded idle interval. Forced interruption after Provider dispatch remains ambiguous and becomes <code>needs_review</code>; it is never automatically repeated.
 
-See [Architecture](docs/architecture.md), [Tool reference](docs/tool-reference.md), [Claims](docs/claims-v0.1.md), [Benchmark methodology](docs/benchmark-methodology.md), [v0.1.1 validation receipt](docs/validation-v0.1.1.md), [Troubleshooting](docs/troubleshooting.md), [Privacy](PRIVACY.md), [Support](SUPPORT.md), [Terms](TERMS.md), [Roadmap](ROADMAP.md), [Security](SECURITY.md), [Third-party services](THIRD_PARTY_SERVICES.md), and [Contributing](CONTRIBUTING.md).
+See [Architecture](docs/architecture.md), [Tool reference](docs/tool-reference.md), [v0.2 claims](docs/claims-v0.2.md), [Benchmark methodology](docs/benchmark-methodology.md), [v0.2.0 validation receipt](docs/validation-v0.2.0.md), [Troubleshooting](docs/troubleshooting.md), [Privacy](PRIVACY.md), [Support](SUPPORT.md), [Terms](TERMS.md), [Roadmap](ROADMAP.md), [Security](SECURITY.md), [Third-party services](THIRD_PARTY_SERVICES.md), and [Contributing](CONTRIBUTING.md).
 
 ## Synthetic payload benchmark
 
@@ -227,7 +237,7 @@ All default tests are offline and make zero real provider calls.
 
 ## Status
 
-v0.1.1 is an experimental public baseline. Review the threat model and data path before enabling a paid provider in a sensitive project.
+v0.2.0 is an experimental public release. Review the threat model and data path before enabling a paid provider in a sensitive project.
 
 If you try it in a real image-heavy workflow, open a GitHub Discussion with your operating system, Codex surface/version, approximate image workload, and whether a fresh task remained responsive. Report reproducible defects with the issue templates; never upload private Runtime state.
 

@@ -1,6 +1,6 @@
 {
   "name": "codex-image-context-runtime-repository",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "description": "Repository marketplace for the Image Context Runtime for Codex plugin.",
   "license": "Apache-2.0",
