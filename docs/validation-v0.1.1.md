@@ -11,8 +11,9 @@ This receipt records release-candidate evidence for Image Context Runtime for Co
 - Runtime requirement: Node.js 22 or later
 - Public MCP tools: 7
 - Default provider: deterministic local mock
+- Validated implementation commit: `9260a94e9e40ad20f190a463bd1568541c405e85`
 
-The release tag and commit digest are recorded by the GitHub release after publication. Cross-platform Actions evidence is appended before the tag is created.
+The final release tag and receipt commit digest are recorded by the GitHub release after publication.
 
 ## Local release gates
 
@@ -56,4 +57,13 @@ The release does not claim that Codex can never slow down, that images consume z
 
 ## Cross-platform CI
 
-The release workflow tests Node.js 22 on Windows, Ubuntu, and macOS, plus Node.js 24 on Ubuntu. The final successful run URL and conclusions will be recorded here before publication.
+The release workflow tests Node.js 22 on Windows, Ubuntu, and macOS, plus Node.js 24 on Ubuntu. All four jobs passed in [GitHub Actions run 31869102519](https://github.com/shixinnt/codex-image-context-runtime/actions/runs/31869102519):
+
+| Environment | Result |
+|---|---:|
+| Windows Server 2022 / Node.js 22 | PASS |
+| Ubuntu / Node.js 22 | PASS |
+| macOS / Node.js 22 | PASS |
+| Ubuntu / Node.js 24 | PASS |
+
+The first macOS candidate run exposed a platform-specific test expectation for the standard configuration directory. The test was corrected to match the existing macOS Application Support location; no Runtime boundary was relaxed. The complete matrix then passed.
