@@ -57,7 +57,7 @@ The local same-user process boundary is not a sandbox. Another process that can 
 Deleting a completed job record blindly would break idempotent replay and could make an old paid intent dispatch again. Therefore retention is split into two layers:
 
 1. **Pagination first:** add stable cursor-based listing so long histories do not require returning or sorting an unbounded public result.
-2. **Explicit compaction later:** replace eligible terminal job bodies with privacy-minimized tombstones while retaining the Job ID, intent ownership, terminal status, artifact receipt, and a retired idempotency binding. Never silently turn a retired key into a new dispatch.
+2. **Explicit compaction:** replace eligible completed or cancelled Job bodies with privacy-minimized tombstones while retaining the Job ID, intent ownership, terminal status, artifact receipt, and a retired idempotency binding. Never silently turn a retired key into a new dispatch. The maintenance CLI defaults to a dry run, applies a bounded batch only with `--apply`, and requires exclusive Runtime ownership.
 
 Automatic secure deletion is not claimed. Workspace artifacts are governed separately from Runtime records.
 

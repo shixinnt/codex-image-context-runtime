@@ -13,6 +13,7 @@
     "benchmark:verify": "node benchmark/context-payload.mjs --verify --jobs 20 --image-bytes 1048576 --seed 20260811",
     "configure": "node plugins/codex-image-context-runtime/scripts/configure.mjs",
     "broker": "node plugins/codex-image-context-runtime/broker/server.mjs",
+    "compact": "node plugins/codex-image-context-runtime/scripts/compact.mjs",
     "doctor": "node plugins/codex-image-context-runtime/scripts/doctor.mjs",
     "check:privacy": "node scripts/check-public-tree.mjs",
     "check": "npm test && npm run benchmark:verify && npm run check:privacy"

@@ -95,6 +95,41 @@ function parseJobCursor(cursor) {
   return { updatedAt, jobId: match[2] };
 }
 
+function compactableTerminalJob(job, cutoffMs) {
+  if (!job || job.record_state === "compacted") return false;
+  if (job.status !== "completed" && job.status !== "cancelled") return false;
+  const updatedAt = Date.parse(job.updated_at);
+  return Number.isSafeInteger(updatedAt) && updatedAt <= cutoffMs;
+}
+
+function compactedJobRecord(job, compactedAt) {
+  return {
+    schema: JOB_SCHEMA,
+    record_state: "compacted",
+    compacted_at: compactedAt,
+    job_id: job.job_id,
+    config_hash: job.config_hash,
+    kind: job.kind,
+    workspace_id: job.workspace_id,
+    status: job.status,
+    created_at: job.created_at,
+    updated_at: job.updated_at,
+    intent_hash: job.intent_hash,
+    idempotency: { key_hash: job.idempotency?.key_hash, state: "retired" },
+    provider_execution: {
+      name: job.provider_execution?.name,
+      state: job.provider_execution?.state ?? (job.status === "completed" ? "completed" : "not_started"),
+      dispatch_state: job.provider_execution?.dispatch_state ?? "not_started",
+      updated_at: job.provider_execution?.updated_at ?? job.updated_at
+    },
+    artifact_receipts: job.artifact_receipts ?? [],
+    inspection_text: null,
+    handoff_ref: null,
+    diagnostic: job.diagnostic ? { code: job.diagnostic.code, stage: job.diagnostic.stage } : null,
+    recovery: null
+  };
+}
+
 function boundedInspectionText(value) {
   assertSafePublicText(value, "inspection result");
   if (Buffer.byteLength(value, "utf8") <= MAX_INSPECTION_BYTES) return value;
@@ -717,6 +752,36 @@ export class ImageContextRuntime {
     const jobs = page.map((job) => publicJobResult(job));
     const nextCursor = candidates.length > limit && page.length > 0 ? encodeJobCursor(page.at(-1)) : null;
     return assertBoundedPublicJson({ count: jobs.length, jobs, next_cursor: nextCursor }, 28 * 1024, "job list");
+  }
+
+  async compactJobs({ olderThanDays = 30, limit = 25, dryRun = true } = {}) {
+    await this.initialize();
+    if (!Number.isInteger(olderThanDays) || olderThanDays < 0 || olderThanDays > 36_500) fail("INVALID_ARGUMENTS", "olderThanDays must be between 0 and 36500");
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) fail("INVALID_ARGUMENTS", "compaction limit must be between 1 and 100");
+    if (typeof dryRun !== "boolean") fail("INVALID_ARGUMENTS", "dryRun must be a boolean");
+    const timestamp = nowIso(this.clock);
+    const cutoffMs = Date.parse(timestamp) - olderThanDays * 86_400_000;
+    const eligible = (await this.store.listJobs())
+      .filter((job) => compactableTerminalJob(job, cutoffMs))
+      .sort((left, right) => String(left.updated_at).localeCompare(String(right.updated_at)) || left.job_id.localeCompare(right.job_id));
+    const selected = eligible.slice(0, limit);
+    if (dryRun) {
+      return assertBoundedPublicJson({ schema: "codex-image-context-compaction-v1", dry_run: true, eligible_count: eligible.length, compacted_count: 0, job_ids: selected.map((job) => job.job_id) }, PUBLIC_RESULT_MAX_BYTES, "compaction result");
+    }
+    const compacted = [];
+    for (const selectedJob of selected) {
+      const result = await this.withJobLock(selectedJob.job_id, async () => {
+        const current = await this.store.requireJob(selectedJob.job_id);
+        if (!compactableTerminalJob(current, cutoffMs)) return null;
+        const tombstone = compactedJobRecord(current, timestamp);
+        const handoffRef = await this.store.writeHandoff(current.job_id, buildHandoff(tombstone));
+        const persisted = { ...tombstone, handoff_ref: handoffRef };
+        await this.store.saveJob(persisted);
+        return persisted;
+      });
+      if (result) compacted.push(result.job_id);
+    }
+    return assertBoundedPublicJson({ schema: "codex-image-context-compaction-v1", dry_run: false, eligible_count: eligible.length, compacted_count: compacted.length, job_ids: compacted }, PUBLIC_RESULT_MAX_BYTES, "compaction result");
   }
 
   async reconcileInterruptedJobs() {

@@ -11,6 +11,7 @@
   "bin": {
     "codex-image-context-runtime": "./mcp/server.mjs",
     "codex-image-context-broker": "./broker/server.mjs",
+    "codex-image-context-compact": "./scripts/compact.mjs",
     "codex-image-context-configure": "./scripts/configure.mjs",
     "codex-image-context-doctor": "./scripts/doctor.mjs"
   },

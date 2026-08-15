@@ -77,6 +77,7 @@ test("plugin manifest, MCP config, and skill agree", async () => {
   assert.equal(rootPackage.version, manifest.version);
   assert.equal(runtimeConstants.VERSION, manifest.version);
   assert.equal(pluginPackage.bin["codex-image-context-broker"], "./broker/server.mjs");
+  assert.equal(pluginPackage.bin["codex-image-context-compact"], "./scripts/compact.mjs");
   assert.equal(pluginPackage.bin["codex-image-context-doctor"], "./scripts/doctor.mjs");
 
   const mcp = await readJson(path.join(pluginRoot, ".mcp.json"));
