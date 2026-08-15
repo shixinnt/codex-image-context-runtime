@@ -79,11 +79,16 @@ test("stable config discovery does not depend on PLUGIN_DATA", () => {
   const platformConfigHome = path.join(os.tmpdir(), "image-context-stable-config");
   const common = process.platform === "win32"
     ? { APPDATA: platformConfigHome }
-    : { XDG_CONFIG_HOME: platformConfigHome };
+    : process.platform === "darwin"
+      ? {}
+      : { XDG_CONFIG_HOME: platformConfigHome };
+  const expectedConfigHome = process.platform === "darwin"
+    ? path.join(os.homedir(), "Library", "Application Support")
+    : platformConfigHome;
   const first = standardConfigPath({ ...common, PLUGIN_DATA: path.join(os.tmpdir(), "plugin-a") });
   const second = standardConfigPath({ ...common, PLUGIN_DATA: path.join(os.tmpdir(), "plugin-b") });
   assert.equal(first, second);
-  assert.equal(first, path.join(platformConfigHome, "codex-image-context-runtime", "config.json"));
+  assert.equal(first, path.join(expectedConfigHome, "codex-image-context-runtime", "config.json"));
 });
 
 test("configuration paths that are not files fail closed", async () => {
