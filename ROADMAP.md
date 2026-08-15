@@ -17,9 +17,9 @@ The roadmap is evidence-driven. Features move only after their public boundary, 
 
 ## v0.2 candidates
 
-- Authenticated multi-client broker or durable worker leases for shared Runtime directories.
-- Pagination and retention controls for long-running job histories.
-- Compatibility investigation for MCP 2026-07-28 tasks and stateless server patterns.
+- Authenticated multi-client broker for shared Runtime directories. **Implementation in progress.**
+- Pagination and retention controls for long-running job histories. **Cursor pagination implemented; privacy-safe compaction pending.**
+- Compatibility investigation for MCP 2026-07-28 tasks and stateless server patterns. **Discovery fallback implemented; full conformance and Tasks remain gated.**
 - Provider interface conformance suite.
 - Reference-image editing with bounded file and hash contracts.
 - Release-archive privacy verification.

@@ -80,6 +80,21 @@ function safeModel(value) {
   return typeof value === "string" && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(value) ? value : null;
 }
 
+function encodeJobCursor(job) {
+  const updatedAt = Date.parse(job.updated_at);
+  if (!Number.isSafeInteger(updatedAt) || updatedAt < 0) fail("JOB_RECORD_INVALID", "job timestamp is invalid");
+  return `job-v1_${updatedAt.toString(36)}_${job.job_id}`;
+}
+
+function parseJobCursor(cursor) {
+  if (typeof cursor !== "string" || cursor.length > 160) fail("INVALID_ARGUMENTS", "job cursor is invalid");
+  const match = /^job-v1_([0-9a-z]+)_(img_[A-Za-z0-9_-]{8,96})$/.exec(cursor);
+  if (!match) fail("INVALID_ARGUMENTS", "job cursor is invalid");
+  const updatedAt = Number.parseInt(match[1], 36);
+  if (!Number.isSafeInteger(updatedAt) || updatedAt < 0) fail("INVALID_ARGUMENTS", "job cursor is invalid");
+  return { updatedAt, jobId: match[2] };
+}
+
 function boundedInspectionText(value) {
   assertSafePublicText(value, "inspection result");
   if (Buffer.byteLength(value, "utf8") <= MAX_INSPECTION_BYTES) return value;
@@ -683,18 +698,25 @@ export class ImageContextRuntime {
     return publicJobResult(await this.store.requireJob(id));
   }
 
-  async listJobs({ limit = 20, status, workspace_id } = {}) {
+  async listJobs({ limit = 20, status, workspace_id, cursor } = {}) {
     await this.initialize();
     if (!Number.isInteger(limit) || limit < 1 || limit > 25) fail("INVALID_ARGUMENTS", "limit must be between 1 and 25");
     if (status !== undefined && !JOB_STATUSES.includes(status)) fail("INVALID_ARGUMENTS", "status filter is invalid");
     if (workspace_id !== undefined) workspaceById(this.config, workspace_id);
-    const jobs = (await this.store.listJobs())
+    const after = cursor === undefined ? null : parseJobCursor(cursor);
+    const candidates = (await this.store.listJobs())
       .filter((job) => status === undefined || job.status === status)
       .filter((job) => workspace_id === undefined || job.workspace_id === workspace_id)
       .sort((left, right) => String(right.updated_at).localeCompare(String(left.updated_at)) || right.job_id.localeCompare(left.job_id))
-      .slice(0, limit)
-      .map((job) => publicJobResult(job));
-    return assertBoundedPublicJson({ count: jobs.length, jobs }, 28 * 1024, "job list");
+      .filter((job) => {
+        if (!after) return true;
+        const updatedAt = Date.parse(job.updated_at);
+        return updatedAt < after.updatedAt || (updatedAt === after.updatedAt && job.job_id.localeCompare(after.jobId) < 0);
+      });
+    const page = candidates.slice(0, limit);
+    const jobs = page.map((job) => publicJobResult(job));
+    const nextCursor = candidates.length > limit && page.length > 0 ? encodeJobCursor(page.at(-1)) : null;
+    return assertBoundedPublicJson({ count: jobs.length, jobs, next_cursor: nextCursor }, 28 * 1024, "job list");
   }
 
   async reconcileInterruptedJobs() {

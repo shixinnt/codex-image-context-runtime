@@ -40,6 +40,7 @@ test("doctor reports safe configuration facts without paths or credentials", asy
     assert.equal(result.status, "ok");
     assert.equal(result.provider, "mock");
     assert.equal(result.credential, "not_required");
+    assert.equal(result.broker, "absent");
     assert.deepEqual(result.workspace_ids, ["workspace"]);
     const human = renderDoctor(result);
     const json = renderDoctor(result, { json: true });
@@ -72,6 +73,7 @@ test("doctor warns about missing remote credentials and lock state without faili
     const result = await diagnose(["--config", configPath], { env: {} });
     assert.equal(result.status, "warning");
     assert.equal(result.credential, "missing");
+    assert.equal(result.broker, "absent");
     assert.deepEqual(result.warnings.sort(), ["openai_api_key_missing", "runtime_lock_present"]);
   } finally {
     await fs.rm(root, { recursive: true, force: true });

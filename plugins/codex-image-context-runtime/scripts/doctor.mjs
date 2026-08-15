@@ -2,6 +2,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { connectToBroker } from "../src/broker.mjs";
 import { loadRuntimeConfig, safeConfigSummary } from "../src/config.mjs";
 import { VERSION } from "../src/constants.mjs";
 import { closedErrorCode, fail } from "../src/errors.mjs";
@@ -46,12 +47,24 @@ export async function diagnose(argv = process.argv.slice(2), { cwd = process.cwd
   const warnings = [];
   const runtimeLock = await entryKind(path.join(config.runtime_dir, "runtime.lock"));
   const acquisitionGuard = await entryKind(path.join(config.runtime_dir, "runtime.lock.guard"));
+  const brokerDescriptor = await entryKind(path.join(config.runtime_dir, "broker.json"));
+  let broker = brokerDescriptor === "absent" ? "absent" : "unavailable";
+  if (brokerDescriptor === "file") {
+    try {
+      const socket = await connectToBroker(config, { timeoutMs: 500 });
+      socket.destroy();
+      broker = "running";
+    } catch {
+      broker = "unavailable";
+    }
+  }
   const apiKeyRequired = summary.provider_mode === "openai";
   const apiKeyPresent = typeof env.OPENAI_API_KEY === "string" && env.OPENAI_API_KEY.length >= 8;
   if (nodeMajor() < 22) warnings.push("node_version_unsupported");
   if (apiKeyRequired && !apiKeyPresent) warnings.push("openai_api_key_missing");
-  if (runtimeLock !== "absent") warnings.push("runtime_lock_present");
+  if (runtimeLock !== "absent" && broker !== "running") warnings.push("runtime_lock_present");
   if (acquisitionGuard !== "absent") warnings.push("runtime_lock_guard_present");
+  if (broker === "unavailable") warnings.push("broker_unavailable");
   return {
     schema: "codex-image-context-doctor-v1",
     status: warnings.length === 0 ? "ok" : "warning",
@@ -64,6 +77,7 @@ export async function diagnose(argv = process.argv.slice(2), { cwd = process.cwd
     credential: apiKeyRequired ? (apiKeyPresent ? "available" : "missing") : "not_required",
     runtime_lock: runtimeLock,
     acquisition_guard: acquisitionGuard,
+    broker,
     warnings
   };
 }
@@ -84,7 +98,8 @@ export function renderDoctor(result, { json = false } = {}) {
     `Workspaces: ${result.workspace_ids.join(", ")}`,
     `Credential: ${result.credential}`,
     `Runtime lock: ${result.runtime_lock}`,
-    `Acquisition guard: ${result.acquisition_guard}`
+    `Acquisition guard: ${result.acquisition_guard}`,
+    `Shared broker: ${result.broker}`
   ];
   if (result.warnings.length > 0) lines.push(`Warnings: ${result.warnings.join(", ")}`);
   return `${lines.join("\n")}\n`;

@@ -76,6 +76,7 @@ test("plugin manifest, MCP config, and skill agree", async () => {
   assert.equal(pluginPackage.version, manifest.version);
   assert.equal(rootPackage.version, manifest.version);
   assert.equal(runtimeConstants.VERSION, manifest.version);
+  assert.equal(pluginPackage.bin["codex-image-context-broker"], "./broker/server.mjs");
   assert.equal(pluginPackage.bin["codex-image-context-doctor"], "./scripts/doctor.mjs");
 
   const mcp = await readJson(path.join(pluginRoot, ".mcp.json"));
@@ -114,6 +115,7 @@ test("release support and community files are present", async () => {
     "SUPPORT.md",
     "SECURITY.md",
     "CODE_OF_CONDUCT.md",
+    "docs/design-v0.2.md",
     "docs/troubleshooting.md",
     ".github/ISSUE_TEMPLATE/bug_report.yml",
     ".github/ISSUE_TEMPLATE/installation_help.yml",

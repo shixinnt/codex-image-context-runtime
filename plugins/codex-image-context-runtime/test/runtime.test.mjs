@@ -261,6 +261,35 @@ test("different idempotency keys cannot concurrently dispatch to the same output
   assert.ok(reservationFailures.length >= 1, "one competing request must fail locally");
 });
 
+test("job listing uses a bounded cursor without duplicate page entries", async (t) => {
+  const { runtime } = await makeFixture(t);
+  const submitted = [];
+  for (let index = 0; index < 5; index += 1) {
+    const job = await runtime.submitGeneration({
+      workspace_id: "workspace",
+      prompt: `Paginated synthetic image ${index}.`,
+      output_path: `pages/frame-${index}.png`,
+      size: "1024x1024",
+      quality: "low",
+      idempotency_key: `pagination-key-${index}`
+    });
+    submitted.push(await runtime.waitForIdle(job.job_id));
+  }
+  const first = await runtime.listJobs({ limit: 2, status: "completed" });
+  assert.equal(first.jobs.length, 2);
+  assert.match(first.next_cursor, /^job-v1_[0-9a-z]+_img_/);
+  const second = await runtime.listJobs({ limit: 2, status: "completed", cursor: first.next_cursor });
+  assert.equal(second.jobs.length, 2);
+  assert.match(second.next_cursor, /^job-v1_[0-9a-z]+_img_/);
+  const third = await runtime.listJobs({ limit: 2, status: "completed", cursor: second.next_cursor });
+  assert.equal(third.jobs.length, 1);
+  assert.equal(third.next_cursor, null);
+  const listedIds = [...first.jobs, ...second.jobs, ...third.jobs].map((job) => job.job_id);
+  assert.equal(new Set(listedIds).size, 5);
+  assert.deepEqual(new Set(listedIds), new Set(submitted.map((job) => job.job_id)));
+  await assert.rejects(runtime.listJobs({ cursor: "not-a-valid-cursor" }), (error) => error?.code === "INVALID_ARGUMENTS");
+});
+
 test("runtime lock rejects a second live owner and permits stale PID recovery", async (t) => {
   const { config, runtime, runtimeDir } = await makeFixture(t);
   const contender = new ImageContextRuntime(config, { provider: createMockProvider() });
@@ -334,6 +363,9 @@ test("MCP exposes exactly seven tools and labels remote OpenAI cost-bearing subm
   assert.equal(generationSchema.oneOf.length, 2, "generation schema must require exactly one prompt source");
   const inspectionSchema = MCP_TOOLS.find((tool) => tool.name === "submit_image_inspection").inputSchema;
   assert.deepEqual(inspectionSchema.not.required, ["prompt", "prompt_ref"], "inspection schema must reject two prompt sources");
+  const listTool = MCP_TOOLS.find((tool) => tool.name === "list_image_jobs");
+  assert.equal(listTool.inputSchema.properties.cursor.maxLength, 160);
+  assert.deepEqual(listTool.outputSchema.required, ["count", "jobs", "next_cursor"]);
   const dispatch = createMcpDispatcher({ runtime: { config: {} } });
   const listed = await dispatch({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} });
   assert.equal(listed.result.tools.length, 7);
@@ -354,6 +386,13 @@ test("MCP negotiates supported protocols, ignores notifications, and rejects inv
 
   const compatible = await dispatch({ jsonrpc: "2.0", id: 2, method: "initialize", params: { protocolVersion: "2025-03-26" } });
   assert.equal(compatible.result.protocolVersion, "2025-03-26");
+
+  const discovery = await dispatch({ jsonrpc: "2.0", id: 4, method: "server/discover", params: { _meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientCapabilities": {} } } });
+  assert.equal(discovery.result.resultType, "complete");
+  assert.deepEqual(discovery.result.supportedVersions, ["2025-06-18", "2025-03-26"]);
+  assert.deepEqual(discovery.result.capabilities, { tools: { listChanged: false } });
+  assert.equal(discovery.result._meta["io.modelcontextprotocol/serverInfo"].version, VERSION);
+  assert.equal(discovery.result.supportedVersions.includes("2026-07-28"), false, "do not advertise modern MCP before its full conformance gate passes");
 
   assert.equal(await dispatch({ jsonrpc: "2.0", method: "notifications/initialized", params: {} }), null);
   assert.equal(await dispatch({ jsonrpc: "2.0", method: "tools/list", params: {} }), null, "requests without IDs are notifications and must not receive responses");

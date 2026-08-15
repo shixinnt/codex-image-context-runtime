@@ -40,7 +40,7 @@ Optional arguments are `workspace_id`, at most one of `prompt` or `prompt_ref`, 
 | `get_image_handoff` | Read the terminal bounded text handoff. |
 | `resume_image_job` | Resume only a queued or provably pre-dispatch failed Job. It may dispatch to a configured remote Provider. |
 | `cancel_image_job` | Cancel before dispatch; after dispatch, fail safe to `needs_review`. |
-| `list_image_jobs` | List up to 25 compact Job projections, optionally filtered by status and workspace ID. |
+| `list_image_jobs` | List up to 25 compact Job projections with an optional stable cursor, status filter, and workspace ID. |
 
 ## Job states
 
