@@ -15,6 +15,22 @@ import { diagnose } from "../scripts/doctor.mjs";
 
 const CONFIG_SCHEMA = "codex-image-context-config-v1";
 
+const sleep = (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs));
+
+async function waitForProcessExit(pid, timeoutMs = 5_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      process.kill(pid, 0);
+    } catch (error) {
+      if (error?.code === "ESRCH") return;
+      throw error;
+    }
+    await sleep(50);
+  }
+  throw new Error("detached broker did not exit before test cleanup");
+}
+
 async function fixture(t, { provider } = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-context-broker-test-"));
   const workspace = path.join(root, "workspace");
@@ -189,16 +205,18 @@ test("stdio bridge autostarts one detached mock broker from a clean config", asy
   output.setEncoding("utf8");
   let brokerPid = null;
   let bridge = null;
+  let config = null;
   t.after(async () => {
     await bridge?.close().catch(() => {});
     if (!brokerPid) {
       try {
-        const config = await normalizeRuntimeConfig(JSON.parse(await fs.readFile(configPath, "utf8")));
+        config ??= await normalizeRuntimeConfig(JSON.parse(await fs.readFile(configPath, "utf8")));
         brokerPid = (await readBrokerDescriptor(config))?.pid ?? null;
       } catch {}
     }
     if (brokerPid) {
       try { process.kill(brokerPid, "SIGTERM"); } catch {}
+      await waitForProcessExit(brokerPid);
     }
     await fs.rm(root, { recursive: true, force: true });
   });
@@ -224,7 +242,7 @@ test("stdio bridge autostarts one detached mock broker from a clean config", asy
   assert.equal(byId.has(2), true, JSON.stringify(responses));
   assert.equal(byId.get(1).result.serverInfo.name, "codex-image-context-runtime");
   assert.equal(byId.get(2).result.tools.length, 7);
-  const config = await normalizeRuntimeConfig(JSON.parse(await fs.readFile(configPath, "utf8")));
+  config = await normalizeRuntimeConfig(JSON.parse(await fs.readFile(configPath, "utf8")));
   brokerPid = (await readBrokerDescriptor(config)).pid;
   assert.notEqual(brokerPid, process.pid);
   input.end();
