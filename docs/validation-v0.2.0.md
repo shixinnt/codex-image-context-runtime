@@ -2,7 +2,7 @@
 
 Date: 2026-08-15
 
-This receipt records release-candidate evidence for Image Context Runtime for Codex v0.2.0. All default validation is offline and uses no live Provider credentials or paid API calls.
+This receipt records release evidence for Image Context Runtime for Codex v0.2.0. All default validation is offline and uses no live Provider credentials or paid API calls.
 
 ## Source identity
 
@@ -11,7 +11,9 @@ This receipt records release-candidate evidence for Image Context Runtime for Co
 - Runtime requirement: Node.js 22 or later
 - Public MCP tools: 7
 - Default Provider: deterministic local mock
-- Validated implementation commit and GitHub Actions run: recorded in the final receipt update before tagging
+- Validated implementation commit: `998daf53072327afa8a476a72854219a68107486`
+- GitHub Actions run: [31876951701](https://github.com/shixinnt/codex-image-context-runtime/actions/runs/31876951701)
+- Local validation environment: Windows, Node.js `24.19.0`, Python `3.11.9`, Codex CLI `0.144.1`
 
 ## Local release gates
 
@@ -39,6 +41,29 @@ The loopback Broker is authenticated and bounded, but it is not a sandbox agains
 
 Full MCP 2026-07-28 and Tasks conformance are not advertised.
 
-## Cross-platform CI and install verification
+## Cross-platform CI
 
-The final receipt update records the Windows, Ubuntu, macOS, Node.js 24, fresh-install, and v0.1.1 upgrade evidence after the release-candidate commit is published.
+GitHub Actions run `31876951701` completed successfully for the implementation commit on:
+
+- Windows Server 2022 with Node.js 22;
+- Ubuntu latest with Node.js 22;
+- macOS latest with Node.js 22; and
+- Ubuntu latest with Node.js 24.
+
+Each job ran the offline release gates, including tests, the synthetic payload proxy, and the public-tree/privacy audit.
+
+## Fresh-install verification
+
+A clean shallow clone of `feature/v0.2-runtime-broker` at the validated implementation commit was installed into an isolated `CODEX_HOME` with Codex CLI `0.144.1`:
+
+1. the local marketplace was added successfully;
+2. the cached plugin resolved to version `0.2.0`;
+3. a new mock configuration and Runtime directory were created outside the clone;
+4. `doctor --json` returned `status: ok` and version `0.2.0`; and
+5. the cached MCP bridge negotiated protocol `2025-06-18`, reported server version `0.2.0`, and returned all 7 tools through the detached Broker.
+
+## v0.1.1 upgrade verification
+
+An isolated installation was first created from the public `v0.1.1` tag and configured with the mock Provider. The source clone was then advanced to the validated v0.2.0 implementation commit, and the plugin was removed and re-added using the documented cache-refresh procedure.
+
+The existing external configuration and Runtime directory remained present. The refreshed cache contained version `0.2.0`; `doctor --json` returned `status: ok`; and the cached MCP bridge negotiated protocol `2025-06-18` with server version `0.2.0`.
