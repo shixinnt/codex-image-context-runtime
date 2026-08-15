@@ -31,6 +31,7 @@ This keeps the plugin shape compatible with Codex while moving all reconciliatio
 - Generate a cryptographically random bearer token and store it only in that descriptor.
 - Require a constant-time token and configuration-hash check before accepting MCP messages.
 - Apply the existing 128 KiB request and 32 KiB response limits at both bridge and broker boundaries.
+- Close unauthenticated sockets after a bounded timeout, cap per-connection in-flight requests and buffered responses, and propagate stdio backpressure to the loopback socket.
 - Never include the token, port, PID, or an absolute path in MCP results or public diagnostics.
 - Give the descriptor owner-only file permissions where the filesystem supports them.
 

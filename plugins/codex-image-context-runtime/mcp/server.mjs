@@ -98,7 +98,11 @@ export async function startBrokeredMcpServer({ configPath, env = process.env, in
     if (line.trim().length === 0) return;
     if (Buffer.byteLength(line, "utf8") > 128 * 1024) return writeParseError();
     try {
-      socket.write(`${JSON.stringify(JSON.parse(line))}\n`);
+      const accepted = socket.write(`${JSON.stringify(JSON.parse(line))}\n`);
+      if (!accepted) {
+        inputLines.pause();
+        socket.once("drain", () => { if (!inputLines.closed) inputLines.resume(); });
+      }
     } catch {
       writeParseError();
     }

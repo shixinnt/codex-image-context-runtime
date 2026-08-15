@@ -5,6 +5,7 @@ All notable changes to this project will be documented here.
 ## Unreleased
 
 - Add an authenticated loopback broker foundation so multiple stdio MCP bridges can share one durable Runtime and global Provider concurrency limit.
+- Bound unauthenticated connections, per-client in-flight work, broker write buffering, and stdio backpressure; add startup-race and shutdown-after-dispatch recovery tests.
 - Add cursor-based pagination for bounded Job history traversal.
 - Add dry-run-first terminal Job compaction that preserves retired idempotency bindings and compact artifact receipts.
 - Add a conservative MCP `server/discover` probe without advertising 2026-07-28 conformance prematurely.

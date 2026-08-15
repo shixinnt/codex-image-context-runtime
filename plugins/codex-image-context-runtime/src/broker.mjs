@@ -15,8 +15,11 @@ const BROKER_SCHEMA = "codex-image-context-broker-v1";
 const BROKER_PROTOCOL = "broker-v1";
 const MAX_BROKER_REQUEST_BYTES = 128 * 1024;
 const MAX_AUTH_BYTES = 4 * 1024;
+const MAX_BROKER_IN_FLIGHT = 32;
+const MAX_BROKER_WRITE_BUFFER_BYTES = 256 * 1024;
 const DEFAULT_STARTUP_TIMEOUT_MS = 8_000;
 const DEFAULT_IDLE_TIMEOUT_MS = 30_000;
+const DEFAULT_AUTH_TIMEOUT_MS = 2_000;
 const TOKEN = /^[a-f0-9]{64}$/;
 
 function sleep(delayMs) {
@@ -72,22 +75,22 @@ function attachBoundedLineReader(socket, { maxBytes, onLine, onOverflow }) {
   socket.setEncoding("utf8");
   const onData = (chunk) => {
     pending += chunk;
-    if (Buffer.byteLength(pending, "utf8") > maxBytes) {
-      socket.off("data", onData);
-      onOverflow();
-      return;
-    }
     for (;;) {
       const boundary = pending.indexOf("\n");
       if (boundary < 0) break;
       const line = pending.slice(0, boundary).replace(/\r$/, "");
       pending = pending.slice(boundary + 1);
-      if (line.length > 0) onLine(line);
-      if (Buffer.byteLength(pending, "utf8") > maxBytes) {
+      if (Buffer.byteLength(line, "utf8") > maxBytes) {
         socket.off("data", onData);
         onOverflow();
         return;
       }
+      if (line.length > 0) onLine(line);
+      if (socket.destroyed) return;
+    }
+    if (Buffer.byteLength(pending, "utf8") > maxBytes) {
+      socket.off("data", onData);
+      onOverflow();
     }
   };
   socket.on("data", onData);
@@ -112,10 +115,12 @@ export async function startBroker({
   provider,
   providerOptions,
   idleTimeoutMs = DEFAULT_IDLE_TIMEOUT_MS,
+  authTimeoutMs = DEFAULT_AUTH_TIMEOUT_MS,
   host = "127.0.0.1"
 } = {}) {
   if (host !== "127.0.0.1") fail("BROKER_BIND_INVALID", "broker must bind to IPv4 loopback");
   const normalizedIdleMs = safeInteger(idleTimeoutMs, { min: 50, max: 300_000, fallback: DEFAULT_IDLE_TIMEOUT_MS });
+  const normalizedAuthMs = safeInteger(authTimeoutMs, { min: 50, max: 30_000, fallback: DEFAULT_AUTH_TIMEOUT_MS });
   const config = await loadRuntimeConfig({ configPath, env });
   const runtime = new ImageContextRuntime(config, { provider, providerOptions });
   await runtime.initialize();
@@ -131,14 +136,25 @@ export async function startBroker({
     if (idleTimer) clearTimeout(idleTimer);
     idleTimer = null;
     let authenticated = false;
+    let rejected = false;
+    let inFlight = 0;
     let detachReader;
     const rejectConnection = (error = "broker_auth_failed") => {
-      socket.end(`${JSON.stringify({ type: "error", error })}\n`);
+      if (rejected || socket.destroyed) return;
+      rejected = true;
+      detachReader?.();
+      const response = authenticated
+        ? { jsonrpc: "2.0", id: null, error: { code: -32603, message: error === "broker_request_too_large" ? "Broker request too large" : "Broker capacity exceeded" } }
+        : { type: "error", error };
+      socket.end(`${JSON.stringify(response)}\n`);
     };
+    const authTimer = setTimeout(() => rejectConnection(), normalizedAuthMs);
+    authTimer.unref?.();
     detachReader = attachBoundedLineReader(socket, {
       maxBytes: MAX_BROKER_REQUEST_BYTES,
       onOverflow: () => rejectConnection(authenticated ? "broker_request_too_large" : "broker_auth_failed"),
       onLine: (line) => {
+        if (rejected) return;
         if (!authenticated) {
           if (Buffer.byteLength(line, "utf8") > MAX_AUTH_BYTES) return rejectConnection();
           const hello = parseJsonLine(line);
@@ -146,6 +162,7 @@ export async function startBroker({
             return rejectConnection();
           }
           authenticated = true;
+          clearTimeout(authTimer);
           socket.write(`${JSON.stringify({ type: "ready", protocol: BROKER_PROTOCOL })}\n`);
           return;
         }
@@ -154,14 +171,20 @@ export async function startBroker({
           socket.write(`${JSON.stringify({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } })}\n`);
           return;
         }
+        if (inFlight >= MAX_BROKER_IN_FLIGHT) return rejectConnection("broker_capacity_exceeded");
+        inFlight += 1;
         void dispatch(message).then((response) => {
-          if (response && !socket.destroyed) socket.write(`${JSON.stringify(response)}\n`);
+          if (!response || socket.destroyed || rejected) return;
+          const encoded = `${JSON.stringify(response)}\n`;
+          if (socket.writableLength + Buffer.byteLength(encoded, "utf8") > MAX_BROKER_WRITE_BUFFER_BYTES) return rejectConnection("broker_capacity_exceeded");
+          socket.write(encoded);
         }).catch(() => {
           if (!socket.destroyed) socket.write(`${JSON.stringify({ jsonrpc: "2.0", id: message?.id ?? null, error: { code: -32603, message: "Internal error" } })}\n`);
-        });
+        }).finally(() => { inFlight -= 1; });
       }
     });
     socket.once("close", () => {
+      clearTimeout(authTimer);
       detachReader?.();
       sockets.delete(socket);
       scheduleIdleClose();

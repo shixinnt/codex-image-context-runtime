@@ -8,7 +8,7 @@ import { PassThrough } from "node:stream";
 import test from "node:test";
 
 import { startBrokeredMcpServer } from "../mcp/server.mjs";
-import { brokerDescriptorPath, connectToBroker, readBrokerDescriptor, startBroker } from "../src/broker.mjs";
+import { brokerDescriptorPath, connectToBroker, ensureBroker, readBrokerDescriptor, startBroker } from "../src/broker.mjs";
 import { normalizeRuntimeConfig } from "../src/config.mjs";
 import { createMockProvider } from "../src/providers/mock.mjs";
 import { diagnose } from "../scripts/doctor.mjs";
@@ -31,7 +31,17 @@ async function waitForProcessExit(pid, timeoutMs = 5_000) {
   throw new Error("detached broker did not exit before test cleanup");
 }
 
-async function fixture(t, { provider } = {}) {
+async function waitUntil(operation, timeoutMs = 5_000) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const value = await operation();
+    if (value) return value;
+    if (Date.now() >= deadline) throw new Error("condition did not become true before timeout");
+    await sleep(25);
+  }
+}
+
+async function fixture(t, { provider, brokerOptions = {} } = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-context-broker-test-"));
   const workspace = path.join(root, "workspace");
   const runtimeDir = path.join(root, "runtime");
@@ -45,7 +55,7 @@ async function fixture(t, { provider } = {}) {
   };
   await fs.writeFile(configPath, `${JSON.stringify(persisted)}\n`, { encoding: "utf8", flag: "wx" });
   const config = await normalizeRuntimeConfig(persisted);
-  const broker = await startBroker({ configPath, provider: provider ?? createMockProvider(), idleTimeoutMs: 10_000 });
+  const broker = await startBroker({ configPath, provider: provider ?? createMockProvider(), idleTimeoutMs: 10_000, ...brokerOptions });
   t.after(async () => {
     await broker.close().catch(() => {});
     await fs.rm(root, { recursive: true, force: true });
@@ -159,6 +169,29 @@ test("provider concurrency is globally bounded across broker clients", async (t)
   assert.equal(maximum, 2);
 });
 
+test("broker shutdown after dispatch preserves an ambiguous Job for review", async (t) => {
+  const { configPath, config, broker } = await fixture(t, { provider: createMockProvider({ delayMs: 1_000 }) });
+  const client = await clientFor(config);
+  const submitted = await client.call(generationCall(90, "broker-shutdown-key", "shutdown/frame.png"));
+  const jobId = submitted.result.structuredContent.job_id;
+  await waitUntil(async () => {
+    const job = await broker.runtime.store.requireJob(jobId);
+    return job.provider_execution?.dispatch_state === "dispatch_started";
+  });
+  await broker.close();
+  client.close();
+
+  const replacement = await startBroker({ configPath, provider: createMockProvider(), idleTimeoutMs: 10_000 });
+  try {
+    const recovered = await replacement.runtime.getJob(jobId);
+    assert.equal(recovered.status, "needs_review");
+    assert.equal(recovered.resumable, false);
+    assert.equal(recovered.diagnostic.stage, "provider_execution");
+  } finally {
+    await replacement.close();
+  }
+});
+
 test("broker authentication rejects a wrong token without echoing it", async (t) => {
   const { config } = await fixture(t);
   const descriptor = await readBrokerDescriptor(config);
@@ -178,14 +211,108 @@ test("broker authentication rejects a wrong token without echoing it", async (t)
   assert.equal(response.includes(descriptor.token), false);
 });
 
+test("broker closes unauthenticated sockets after a bounded timeout", async (t) => {
+  const { config } = await fixture(t, { brokerOptions: { authTimeoutMs: 50 } });
+  const descriptor = await readBrokerDescriptor(config);
+  const response = await new Promise((resolve, reject) => {
+    const socket = net.createConnection({ host: "127.0.0.1", port: descriptor.port });
+    socket.setEncoding("utf8");
+    let text = "";
+    socket.once("error", reject);
+    socket.on("data", (chunk) => { text += chunk; });
+    socket.once("close", () => resolve(text));
+  });
+  assert.match(response, /broker_auth_failed/);
+  assert.equal(response.includes(descriptor.token), false);
+  assert.equal(response.includes(config.config_hash), false);
+});
+
+test("broker parses several bounded frames delivered in one network chunk", async (t) => {
+  const { config } = await fixture(t);
+  const descriptor = await readBrokerDescriptor(config);
+  const messages = await new Promise((resolve, reject) => {
+    const socket = net.createConnection({ host: "127.0.0.1", port: descriptor.port });
+    socket.setEncoding("utf8");
+    let pending = "";
+    const received = [];
+    socket.once("error", reject);
+    socket.once("connect", () => socket.write([
+      JSON.stringify({ type: "auth", protocol: "broker-v1", token: descriptor.token, config_hash: config.config_hash }),
+      JSON.stringify({ jsonrpc: "2.0", id: 41, method: "ping" }),
+      JSON.stringify({ jsonrpc: "2.0", id: 42, method: "ping" }),
+      ""
+    ].join("\n")));
+    socket.on("data", (chunk) => {
+      pending += chunk;
+      for (;;) {
+        const boundary = pending.indexOf("\n");
+        if (boundary < 0) break;
+        received.push(JSON.parse(pending.slice(0, boundary)));
+        pending = pending.slice(boundary + 1);
+      }
+      if (received.length === 3) {
+        socket.destroy();
+        resolve(received);
+      }
+    });
+  });
+  assert.equal(messages[0].type, "ready");
+  assert.deepEqual(new Set(messages.slice(1).map((message) => message.id)), new Set([41, 42]));
+});
+
 test("broker removes only its owned descriptor on close", async (t) => {
   const { config, broker } = await fixture(t);
   assert.equal((await readBrokerDescriptor(config)).pid, process.pid);
+  if (process.platform !== "win32") {
+    const descriptorMode = (await fs.stat(brokerDescriptorPath(config))).mode & 0o777;
+    assert.equal(descriptorMode & 0o077, 0, "broker descriptor must not be group/world accessible");
+  }
   const diagnosis = await diagnose(["--config", path.join(config.runtime_dir, "..", "config.json")], { env: {} });
   assert.equal(diagnosis.broker, "running");
   assert.equal(diagnosis.warnings.includes("runtime_lock_present"), false);
   await broker.close();
   await assert.rejects(fs.stat(brokerDescriptorPath(config)), (error) => error?.code === "ENOENT");
+});
+
+test("concurrent bridge autostart converges on one detached broker owner", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-context-broker-race-"));
+  const workspace = path.join(root, "workspace");
+  const runtimeDir = path.join(root, "runtime");
+  const configPath = path.join(root, "config.json");
+  await fs.mkdir(workspace, { recursive: true });
+  const persisted = {
+    schema: CONFIG_SCHEMA,
+    runtime_dir: runtimeDir,
+    provider: { mode: "mock", generation_model: "mock-image-v1", vision_model: "mock-vision-v1" },
+    workspaces: [{ id: "workspace", root: workspace }]
+  };
+  await fs.writeFile(configPath, `${JSON.stringify(persisted)}\n`, { encoding: "utf8", flag: "wx" });
+  const config = await normalizeRuntimeConfig(persisted);
+  let brokerPid = null;
+  const sockets = [];
+  t.after(async () => {
+    for (const socket of sockets) socket.destroy();
+    if (!brokerPid) {
+      try { brokerPid = (await readBrokerDescriptor(config))?.pid ?? null; } catch {}
+    }
+    if (brokerPid) {
+      try { process.kill(brokerPid, "SIGTERM"); } catch {}
+      await waitForProcessExit(brokerPid).catch(() => {});
+    }
+    await fs.rm(root, { recursive: true, force: true });
+  });
+  const env = { ...process.env, CODEX_IMAGE_CONTEXT_BROKER_IDLE_MS: "10000" };
+  const [first, second] = await Promise.all([
+    ensureBroker({ configPath, env }),
+    ensureBroker({ configPath, env })
+  ]);
+  sockets.push(first.socket, second.socket);
+  const descriptor = await readBrokerDescriptor(config);
+  brokerPid = descriptor.pid;
+  assert.notEqual(brokerPid, process.pid);
+  assert.equal(first.config.config_hash, second.config.config_hash);
+  assert.equal(first.socket.remotePort, descriptor.port);
+  assert.equal(second.socket.remotePort, descriptor.port);
 });
 
 test("stdio bridge autostarts one detached mock broker from a clean config", async (t) => {
