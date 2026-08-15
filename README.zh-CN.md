@@ -49,7 +49,12 @@ Codex 图片上下文运行时是一个实验性的开源 Codex 插件，后端�
 
 ## 安装与配置
 
-先通过 GitHub 的 **Code** 菜单 clone 本仓库，再从仓库根目录执行以下命令。配置助手需要在 Codex 外运行，因此需要本地 clone：
+先 clone 已发布的标签，再从仓库根目录执行命令。配置助手需要在 Codex 外运行，因此需要本地 clone：
+
+~~~powershell
+git clone --depth 1 --branch v0.1.1 https://github.com/shixinnt/codex-image-context-runtime.git
+cd codex-image-context-runtime
+~~~
 
 ~~~powershell
 codex plugin marketplace add .
@@ -59,14 +64,16 @@ codex plugin add codex-image-context-runtime@codex-image-context-runtime
 首次安装请选择**一种** Provider 配置。默认 Mock Provider 不联网，也不会产生 API 费用：
 
 ~~~powershell
-node plugins/codex-image-context-runtime/scripts/configure.mjs --workspace "C:\path\to\your\project" --provider mock
+npm run configure -- --workspace "C:\path\to\your\project" --provider mock
 ~~~
+
+Workspace 可以写绝对路径，也可以写相对于当前仓库 clone 目录的路径；自定义 `--config` 与 `--runtime-dir` 必须使用绝对路径。
 
 或者从一开始就启用 OpenAI Provider，并确保 Codex 进程可以读取 Key：
 
 ~~~powershell
 $env:OPENAI_API_KEY = "只在仓库外设置"
-node plugins/codex-image-context-runtime/scripts/configure.mjs --workspace "C:\path\to\your\project" --provider openai
+npm run configure -- --workspace "C:\path\to\your\project" --provider openai
 ~~~
 
 配置文件不会保存 API Key。
@@ -76,8 +83,35 @@ node plugins/codex-image-context-runtime/scripts/configure.mjs --workspace "C:\p
 如果要把已有 Mock 配置切换为 OpenAI，请先停止活跃 worker，再用新 Runtime 目录覆盖配置，避免混用在途状态：
 
 ~~~powershell
-node plugins/codex-image-context-runtime/scripts/configure.mjs --workspace "C:\path\to\your\project" --provider openai --runtime-dir "C:\path\to\image-runtime-openai" --force
+npm run configure -- --workspace "C:\path\to\your\project" --provider openai --runtime-dir "C:\path\to\image-runtime-openai" --force
 ~~~
+
+运行不会输出本机路径或凭据的诊断：
+
+~~~powershell
+npm run doctor
+npm run doctor -- --json
+~~~
+
+Bash 环境可在启动 Codex 前设置 Key：
+
+~~~sh
+export OPENAI_API_KEY="只在仓库外设置"
+npm run configure -- --workspace "/path/to/your/project" --provider openai
+~~~
+
+### 更新已有安装
+
+先停止活跃图片 Job，然后更新 clone 并刷新 Codex 的插件缓存：
+
+~~~powershell
+git fetch --tags
+git checkout v0.1.1
+codex plugin remove codex-image-context-runtime@codex-image-context-runtime
+codex plugin add codex-image-context-runtime@codex-image-context-runtime
+~~~
+
+配置与 Runtime 数据不在 clone 内，重装插件不会删除它们。更新后请重启 Codex。
 
 Runtime 会在本地持久化 prompt、检查问题、相对引用与 Provider 状态，请把 Runtime 目录当作项目数据保护。
 
@@ -106,7 +140,7 @@ Runtime 会在本地持久化 prompt、检查问题、相对引用与 Provider �
 - 所有 Provider 请求都可以断点续传；
 - 本地 Runtime 等于数据绝不离开本机。
 
-完整英文说明、架构、测试和 benchmark 请见 [README](README.md)。
+完整英文说明、架构、测试和 benchmark 请见 [README](README.md)。安装问题可先运行 `npm run doctor`，再查看[故障排查](docs/troubleshooting.md)与[支持说明](SUPPORT.md)；另见[隐私说明](PRIVACY.md)和[使用条款](TERMS.md)。
 
 ## 合成载荷基准
 
@@ -115,3 +149,5 @@ Runtime 会在本地持久化 prompt、检查问题、相对引用与 Provider �
 这不是 Codex token、延迟、内存、响应速度或原生图片处理的测量。详见英文 [benchmark 方法](docs/benchmark-methodology.md) 和机器可读报告。
 
 本项目采用 Apache License 2.0，是独立开源项目，与 OpenAI 无隶属关系，也未获得 OpenAI 背书。
+
+如果你在真实的图片密集任务中试用了本项目，欢迎在 GitHub Discussions 说明操作系统、Codex 版本/形态、大致图片负载，以及新的任务是否保持响应。提交问题时不要上传私密 Runtime 数据。

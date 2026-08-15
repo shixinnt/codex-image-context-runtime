@@ -6,7 +6,7 @@ import { normalizeRuntimeConfig, runtimeHome, standardConfigPath } from "../src/
 import { closedErrorCode, fail } from "../src/errors.mjs";
 import { atomicWriteJson, writeNewJson } from "../src/safety.mjs";
 
-export function parseConfigureArgs(argv, { env = process.env } = {}) {
+export function parseConfigureArgs(argv, { env = process.env, cwd = process.cwd() } = {}) {
   if (!Array.isArray(argv)) throw new Error("argv must be an array");
   const workspaces = [];
   let providerMode = "mock";
@@ -35,8 +35,7 @@ export function parseConfigureArgs(argv, { env = process.env } = {}) {
   if (workspaces.length === 0) fail("CONFIG_INVALID", "at least one --workspace is required");
   workspaces.forEach((workspace, index) => {
     workspace.id ??= index === 0 ? "workspace" : `workspace-${index + 1}`;
-    if (!path.isAbsolute(workspace.root)) fail("CONFIG_INVALID", "workspace paths must be absolute");
-    workspace.root = path.resolve(workspace.root);
+    workspace.root = path.resolve(cwd, workspace.root);
   });
   if (!path.isAbsolute(configPath) || !path.isAbsolute(runtimeDir)) fail("CONFIG_INVALID", "config and runtime paths must be absolute");
   if (!new Set(["mock", "openai"]).has(providerMode)) fail("CONFIG_INVALID", "provider must be mock or openai");
@@ -57,6 +56,10 @@ export function parseConfigureArgs(argv, { env = process.env } = {}) {
       workspaces
     }
   };
+}
+
+export function configureHelp() {
+  return `Codex Image Context Runtime configuration\n\nUsage:\n  node scripts/configure.mjs --workspace <path> [options]\n\nOptions:\n  --workspace <[id=]path>  Bind one workspace; repeat for multiple roots. Relative paths resolve from the current directory.\n  --provider <mock|openai> Provider mode (default: mock).\n  --runtime-dir <path>     Absolute durable Runtime directory.\n  --config <path>          Absolute configuration file path.\n  --image-model <name>     OpenAI image model override.\n  --vision-model <name>    OpenAI vision model override.\n  --force                  Replace an existing configuration.\n  --help                   Show this help.\n`;
 }
 
 export async function configure(argv = process.argv.slice(2), options = {}) {
@@ -82,7 +85,9 @@ export async function configure(argv = process.argv.slice(2), options = {}) {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
-  configure().then((result) => process.stdout.write(`${JSON.stringify(result)}\n`)).catch((error) => {
+  if (process.argv.slice(2).includes("--help")) {
+    process.stdout.write(configureHelp());
+  } else configure().then((result) => process.stdout.write(`${JSON.stringify(result)}\n`)).catch((error) => {
     process.stderr.write(`${JSON.stringify({ status: "failed", error: closedErrorCode(error, "CONFIGURE_FAILED") })}\n`);
     process.exitCode = 1;
   });

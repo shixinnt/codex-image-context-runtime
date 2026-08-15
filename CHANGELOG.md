@@ -4,7 +4,15 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
+## 0.1.1 - 2026-08-15
+
 - Add original project branding for the README, Codex plugin UI, and GitHub social preview.
+- Add a privacy-safe `doctor` command for installation and Runtime diagnostics.
+- Accept explicit relative workspace paths in the configuration helper.
+- Add privacy, support, troubleshooting, community, and contribution guidance.
+- Add repository issue and pull-request templates.
+- Expand offline CI to macOS and Node.js 24 while retaining Node.js 22 and Windows coverage.
+- Publish richer plugin metadata without adding personal contact information.
 
 ## 0.1.0 - 2026-08-11
 

@@ -1,10 +1,13 @@
 {
   "name": "codex-image-context-runtime",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Context-bounded image generation and inspection through durable local jobs.",
   "author": {
-    "name": "Image Context Runtime contributors"
+    "name": "Image Context Runtime contributors",
+    "url": "https://github.com/shixinnt/codex-image-context-runtime"
   },
+  "homepage": "https://github.com/shixinnt/codex-image-context-runtime",
+  "repository": "https://github.com/shixinnt/codex-image-context-runtime",
   "license": "Apache-2.0",
   "keywords": [
     "codex",
@@ -24,6 +27,9 @@
     "shortDescription": "Bounded, resumable image jobs",
     "longDescription": "Generate and inspect images through durable local jobs that return bounded text receipts, hashes, references, and Job IDs instead of media payloads.",
     "developerName": "Image Context Runtime contributors",
+    "websiteURL": "https://github.com/shixinnt/codex-image-context-runtime",
+    "privacyPolicyURL": "https://github.com/shixinnt/codex-image-context-runtime/blob/main/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/shixinnt/codex-image-context-runtime/blob/main/TERMS.md",
     "category": "Creativity",
     "capabilities": [
       "Generate images",

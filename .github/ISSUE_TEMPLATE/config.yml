@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and field reports
+    url: https://github.com/shixinnt/codex-image-context-runtime/discussions
+    about: Ask usage questions or share image-heavy workflow results.
+  - name: Private vulnerability report
+    url: https://github.com/shixinnt/codex-image-context-runtime/security/advisories/new
+    about: Report security boundary defects without exposing sensitive data.

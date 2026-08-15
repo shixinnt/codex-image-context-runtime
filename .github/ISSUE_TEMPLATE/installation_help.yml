@@ -1,0 +1,56 @@
+name: Installation help
+description: Ask for help installing, configuring, or diagnosing the plugin
+title: "[Install]: "
+labels:
+  - question
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read the README and troubleshooting guide, then run `npm run doctor`. Do not post credentials, private media, prompts, provider responses, or filesystem paths.
+  - type: input
+    id: release
+    attributes:
+      label: Release or commit
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Operating system, Node.js, and Codex versions
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Where are you blocked?
+      options:
+        - Clone or marketplace installation
+        - Configuration
+        - Codex restart or MCP discovery
+        - Mock provider test
+        - OpenAI provider setup
+        - Job submission or recovery
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Commands and bounded error codes
+      description: Redact paths and use placeholders. Do not include environment-variable values.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Reviewed doctor output
+      description: Optional output from `npm run doctor -- --json`.
+      render: json
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I inspected this report and removed credentials, personal information, private media, prompts, and paths.
+          required: true

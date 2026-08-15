@@ -1,6 +1,6 @@
 {
   "name": "codex-image-context-runtime-repository",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Repository marketplace for the Image Context Runtime for Codex plugin.",
   "license": "Apache-2.0",
@@ -11,6 +11,8 @@
     "test": "npm --prefix plugins/codex-image-context-runtime test && node --test test/**/*.test.mjs",
     "benchmark": "node benchmark/context-payload.mjs",
     "benchmark:verify": "node benchmark/context-payload.mjs --verify --jobs 20 --image-bytes 1048576 --seed 20260811",
+    "configure": "node plugins/codex-image-context-runtime/scripts/configure.mjs",
+    "doctor": "node plugins/codex-image-context-runtime/scripts/doctor.mjs",
     "check:privacy": "node scripts/check-public-tree.mjs",
     "check": "npm test && npm run benchmark:verify && npm run check:privacy"
   }

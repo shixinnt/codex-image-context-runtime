@@ -1,0 +1,40 @@
+name: Feature request
+description: Propose a bounded improvement and explain its user problem
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: User problem
+      description: Describe the workflow problem before proposing an implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed public behavior
+      description: Explain inputs, outputs, recovery, and what Codex should see.
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Context, privacy, cost, and failure boundaries
+      description: Identify media flow, credentials, paid dispatch, persistence, cancellation, and ambiguous outcomes.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This request preserves bounded text-only MCP results and does not require caller-selected Runtime or workspace roots.
+          required: true
+        - label: I have not included private project data, personal information, or credentials.
+          required: true

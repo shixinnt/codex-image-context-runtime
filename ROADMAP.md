@@ -12,15 +12,16 @@ The roadmap is evidence-driven. Features move only after their public boundary, 
 - Idempotent submission, restart reconciliation, and explicit ambiguous-dispatch review.
 - Synthetic serialized-payload benchmark.
 - Fresh-clone installation and offline validation.
-- Windows and Linux CI.
+- Privacy-safe configuration diagnostics.
+- Windows, Linux, and macOS CI.
 
 ## v0.2 candidates
 
-- Pagination and retention controls for long-running job histories.
 - Authenticated multi-client broker or durable worker leases for shared Runtime directories.
+- Pagination and retention controls for long-running job histories.
+- Compatibility investigation for MCP 2026-07-28 tasks and stateless server patterns.
 - Provider interface conformance suite.
 - Reference-image editing with bounded file and hash contracts.
-- macOS CI.
 - Release-archive privacy verification.
 - Fully crash-atomic artifact publication on filesystems without hard-link support.
 

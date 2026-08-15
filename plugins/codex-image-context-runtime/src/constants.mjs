@@ -1,4 +1,5 @@
 export const MCP_ENVELOPE_MAX_BYTES = 32 * 1024;
+export const VERSION = "0.1.1";
 export const HANDOFF_MAX_BYTES = 16 * 1024;
 export const PUBLIC_RESULT_MAX_BYTES = 12 * 1024;
 export const MAX_PROMPT_BYTES = 64 * 1024;

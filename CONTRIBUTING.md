@@ -10,7 +10,7 @@ Before proposing a large feature, open an issue describing the user problem, the
 
 ## Development requirements
 
-- Node.js 22
+- Node.js 22 or later
 - Git
 - No provider credential is required for the default test suite
 - Optional live services must remain opt-in
@@ -20,6 +20,8 @@ Run the complete offline release gates before opening a pull request:
 ```sh
 npm run check
 ```
+
+Use `npm run doctor` for a privacy-safe installation summary. Do not attach a Runtime directory or unreviewed local logs to an issue or pull request.
 
 The default suite must not make network requests or dispatch paid jobs. Use dependency injection and deterministic fake providers in tests.
 

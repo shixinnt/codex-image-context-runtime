@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const MARKETPLACE_PATH = path.join(ROOT, ".agents", "plugins", "marketplace.json");
@@ -38,7 +38,7 @@ test("plugin manifest, MCP config, and skill agree", async () => {
   const pluginRoot = path.join(ROOT, "plugins", "codex-image-context-runtime");
   const manifest = await readJson(path.join(pluginRoot, ".codex-plugin", "plugin.json"));
   assert.equal(manifest.name, "codex-image-context-runtime");
-  assert.equal(manifest.version, "0.1.0");
+  assert.equal(manifest.version, "0.1.1");
   assert.equal(manifest.skills, "./skills/");
   assert.equal(manifest.mcpServers, "./.mcp.json");
   assert.deepEqual(manifest.interface.capabilities, [
@@ -60,7 +60,23 @@ test("plugin manifest, MCP config, and skill agree", async () => {
     assert.match(svg, /viewBox="0 0 1024 1024"/);
     assert.doesNotMatch(svg, /<(?:text|image)\b|data:|base64/i);
   }
-  assert.deepEqual(manifest.author, { name: "Image Context Runtime contributors" });
+  assert.deepEqual(manifest.author, {
+    name: "Image Context Runtime contributors",
+    url: "https://github.com/shixinnt/codex-image-context-runtime"
+  });
+  assert.equal(manifest.homepage, "https://github.com/shixinnt/codex-image-context-runtime");
+  assert.equal(manifest.repository, manifest.homepage);
+  assert.equal(manifest.interface.websiteURL, manifest.homepage);
+  assert.equal(manifest.interface.privacyPolicyURL, `${manifest.homepage}/blob/main/PRIVACY.md`);
+  assert.equal(manifest.interface.termsOfServiceURL, `${manifest.homepage}/blob/main/TERMS.md`);
+
+  const pluginPackage = await readJson(path.join(pluginRoot, "package.json"));
+  const rootPackage = await readJson(path.join(ROOT, "package.json"));
+  const runtimeConstants = await import(pathToFileURL(path.join(pluginRoot, "src", "constants.mjs")).href);
+  assert.equal(pluginPackage.version, manifest.version);
+  assert.equal(rootPackage.version, manifest.version);
+  assert.equal(runtimeConstants.VERSION, manifest.version);
+  assert.equal(pluginPackage.bin["codex-image-context-doctor"], "./scripts/doctor.mjs");
 
   const mcp = await readJson(path.join(pluginRoot, ".mcp.json"));
   const server = mcp.mcpServers.image_context_runtime;
@@ -89,4 +105,30 @@ test("repository metadata is non-personal and Apache-2.0", async () => {
   const notice = await fs.readFile(path.join(ROOT, "NOTICE"), "utf8");
   assert.match(notice, /codex-image-context-runtime/i);
   assert.doesNotMatch(notice, /@/);
+});
+
+test("release support and community files are present", async () => {
+  const requiredFiles = [
+    "PRIVACY.md",
+    "TERMS.md",
+    "SUPPORT.md",
+    "SECURITY.md",
+    "CODE_OF_CONDUCT.md",
+    "docs/troubleshooting.md",
+    ".github/ISSUE_TEMPLATE/bug_report.yml",
+    ".github/ISSUE_TEMPLATE/installation_help.yml",
+    ".github/ISSUE_TEMPLATE/feature_request.yml",
+    ".github/ISSUE_TEMPLATE/config.yml",
+    ".github/pull_request_template.md"
+  ];
+  for (const relativePath of requiredFiles) {
+    const entry = await fs.stat(path.join(ROOT, relativePath));
+    assert.equal(entry.isFile(), true, `${relativePath} must be a file`);
+  }
+  const privacy = await fs.readFile(path.join(ROOT, "PRIVACY.md"), "utf8");
+  assert.match(privacy, /no automatic retention/i);
+  assert.match(privacy, /does not include project telemetry/i);
+  const support = await fs.readFile(path.join(ROOT, "SUPPORT.md"), "utf8");
+  assert.match(support, /npm run doctor/);
+  assert.match(support, /do not post credentials/i);
 });

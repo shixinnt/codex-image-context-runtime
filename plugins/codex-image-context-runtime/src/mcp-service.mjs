@@ -1,4 +1,4 @@
-import { MCP_ENVELOPE_MAX_BYTES, RESULT_SCHEMA } from "./constants.mjs";
+import { MCP_ENVELOPE_MAX_BYTES, RESULT_SCHEMA, VERSION } from "./constants.mjs";
 import { safeConfigSummary } from "./config.mjs";
 import { closedErrorCode, fail } from "./errors.mjs";
 import { assertBoundedPublicJson, assertExactKeys, assertSafeJobId, assertSafePublicText, byteLengthJson, isPlainObject } from "./safety.mjs";
@@ -160,7 +160,7 @@ export function createMcpDispatcher({ runtime, service = createMcpService(runtim
     let response;
     if (method === "initialize") {
       const protocolVersion = SUPPORTED_MCP_PROTOCOLS.has(params?.protocolVersion) ? params.protocolVersion : DEFAULT_MCP_PROTOCOL;
-      response = { jsonrpc: "2.0", id, result: { protocolVersion, capabilities: { tools: {} }, serverInfo: { name: "codex-image-context-runtime", version: "0.1.0" }, instructions: "Use relative refs and Job IDs. Media bytes, base64, raw Provider responses, credentials, and absolute paths are forbidden in public results.", runtime: safeConfigSummary(runtime.config) } };
+      response = { jsonrpc: "2.0", id, result: { protocolVersion, capabilities: { tools: {} }, serverInfo: { name: "codex-image-context-runtime", title: "Codex Image Context Runtime", version: VERSION, description: "Durable, context-bounded image generation and inspection.", websiteUrl: "https://github.com/shixinnt/codex-image-context-runtime" }, instructions: "Use relative refs and Job IDs. Media bytes, base64, raw Provider responses, credentials, and absolute paths are forbidden in public results.", runtime: safeConfigSummary(runtime.config) } };
     } else if (method === "ping") response = { jsonrpc: "2.0", id, result: {} };
     else if (method === "tools/list") response = { jsonrpc: "2.0", id, result: { tools: MCP_TOOLS } };
     else if (method === "tools/call") response = { jsonrpc: "2.0", id, result: await service.call(params?.name, params?.arguments ?? {}) };

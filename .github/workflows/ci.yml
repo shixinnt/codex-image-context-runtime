@@ -13,24 +13,30 @@ concurrency:
 
 jobs:
   offline-test:
-    name: Node 22 / ${{ matrix.os }}
+    name: Node ${{ matrix.node }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - ubuntu-latest
-          - windows-2022
+        include:
+          - os: ubuntu-latest
+            node: 22
+          - os: windows-2022
+            node: 22
+          - os: macos-latest
+            node: 22
+          - os: ubuntu-latest
+            node: 24
 
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Use Node.js 22
+      - name: Use Node.js ${{ matrix.node }}
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 22
+          node-version: ${{ matrix.node }}
 
       - name: Show runtime version
         run: node --version

@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { loadRuntimeConfig, normalizeRuntimeConfig, standardConfigPath } from "../src/config.mjs";
-import { HANDOFF_MAX_BYTES, MCP_ENVELOPE_MAX_BYTES } from "../src/constants.mjs";
+import { HANDOFF_MAX_BYTES, MCP_ENVELOPE_MAX_BYTES, VERSION } from "../src/constants.mjs";
 import { createMcpDispatcher, createMcpService, MCP_TOOLS } from "../src/mcp-service.mjs";
 import { createMockProvider } from "../src/providers/mock.mjs";
 import { ImageContextRuntime } from "../src/runtime.mjs";
@@ -344,6 +344,8 @@ test("MCP negotiates supported protocols, ignores notifications, and rejects inv
 
   const current = await dispatch({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2099-01-01" } });
   assert.equal(current.result.protocolVersion, "2025-06-18", "an unknown client version must not be echoed as supported");
+  assert.equal(current.result.serverInfo.version, VERSION);
+  assert.equal(current.result.serverInfo.websiteUrl, "https://github.com/shixinnt/codex-image-context-runtime");
 
   const compatible = await dispatch({ jsonrpc: "2.0", id: 2, method: "initialize", params: { protocolVersion: "2025-03-26" } });
   assert.equal(compatible.result.protocolVersion, "2025-03-26");

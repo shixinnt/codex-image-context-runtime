@@ -69,7 +69,12 @@ Video generation is intentionally out of scope for v0.1.
 
 ## Install and configure
 
-Clone this repository with GitHub's **Code** menu, then run the following commands from its root. The configuration helper runs outside Codex, so a local clone is required:
+Clone the tagged release, then run the following commands from its root. The configuration helper runs outside Codex, so a local clone is required:
+
+~~~powershell
+git clone --depth 1 --branch v0.1.1 https://github.com/shixinnt/codex-image-context-runtime.git
+cd codex-image-context-runtime
+~~~
 
 ~~~powershell
 codex plugin marketplace add .
@@ -81,14 +86,16 @@ The default provider is offline and deterministic, so installing the plugin cann
 For a first installation, choose **one** Provider configuration. For the offline mock:
 
 ~~~powershell
-node plugins/codex-image-context-runtime/scripts/configure.mjs --workspace "C:\path\to\your\project" --provider mock
+npm run configure -- --workspace "C:\path\to\your\project" --provider mock
 ~~~
+
+Workspace paths may be absolute or relative to the repository clone's current directory. Custom `--config` and `--runtime-dir` paths must be absolute.
 
 Or, for the optional OpenAI Provider, make the key available to the Codex process and configure OpenAI from the start:
 
 ~~~powershell
 $env:OPENAI_API_KEY = "set-this-outside-the-repository"
-node plugins/codex-image-context-runtime/scripts/configure.mjs --workspace "C:\path\to\your\project" --provider openai
+npm run configure -- --workspace "C:\path\to\your\project" --provider openai
 ~~~
 
 The configuration file stores paths and model choices only. It never stores the API key.
@@ -98,8 +105,35 @@ The PowerShell environment assignment applies only to that shell and child proce
 To switch an existing mock setup to OpenAI, first stop the active worker, then replace the config and use a new Runtime directory so in-flight state is not mixed:
 
 ~~~powershell
-node plugins/codex-image-context-runtime/scripts/configure.mjs --workspace "C:\path\to\your\project" --provider openai --runtime-dir "C:\path\to\image-runtime-openai" --force
+npm run configure -- --workspace "C:\path\to\your\project" --provider openai --runtime-dir "C:\path\to\image-runtime-openai" --force
 ~~~
+
+Check the installation without exposing local paths or credentials:
+
+~~~powershell
+npm run doctor
+npm run doctor -- --json
+~~~
+
+For Bash-compatible shells, export the key before starting Codex:
+
+~~~sh
+export OPENAI_API_KEY="set-this-outside-the-repository"
+npm run configure -- --workspace "/path/to/your/project" --provider openai
+~~~
+
+### Update an existing installation
+
+Stop active image jobs, update the clone to the new tag, then refresh the installed plugin cache:
+
+~~~powershell
+git fetch --tags
+git checkout v0.1.1
+codex plugin remove codex-image-context-runtime@codex-image-context-runtime
+codex plugin add codex-image-context-runtime@codex-image-context-runtime
+~~~
+
+Configuration and Runtime data are outside the clone and are not deleted by reinstalling the plugin. Restart Codex after the update.
 
 ## Example prompts
 
@@ -155,7 +189,7 @@ If a process is forcibly killed during the millisecond-scale lock-takeover criti
 
 For simultaneous Codex tasks, use distinct configuration and Runtime directories. A shared multi-client broker is a later roadmap item; v0.1 does not pretend that process-local coordination is cross-session coordination.
 
-See [Architecture](docs/architecture.md), [Tool reference](docs/tool-reference.md), [Claims](docs/claims-v0.1.md), [Benchmark methodology](docs/benchmark-methodology.md), [v0.1 validation receipt](docs/validation-v0.1.0.md), [Roadmap](ROADMAP.md), [Security](SECURITY.md), [Third-party services](THIRD_PARTY_SERVICES.md), and [Contributing](CONTRIBUTING.md).
+See [Architecture](docs/architecture.md), [Tool reference](docs/tool-reference.md), [Claims](docs/claims-v0.1.md), [Benchmark methodology](docs/benchmark-methodology.md), [v0.1.1 validation receipt](docs/validation-v0.1.1.md), [Troubleshooting](docs/troubleshooting.md), [Privacy](PRIVACY.md), [Support](SUPPORT.md), [Terms](TERMS.md), [Roadmap](ROADMAP.md), [Security](SECURITY.md), [Third-party services](THIRD_PARTY_SERVICES.md), and [Contributing](CONTRIBUTING.md).
 
 ## Synthetic payload benchmark
 
@@ -193,7 +227,9 @@ All default tests are offline and make zero real provider calls.
 
 ## Status
 
-v0.1 is an experimental public baseline. Review the threat model and data path before enabling a paid provider in a sensitive project.
+v0.1.1 is an experimental public baseline. Review the threat model and data path before enabling a paid provider in a sensitive project.
+
+If you try it in a real image-heavy workflow, open a GitHub Discussion with your operating system, Codex surface/version, approximate image workload, and whether a fresh task remained responsive. Report reproducible defects with the issue templates; never upload private Runtime state.
 
 ## License
 

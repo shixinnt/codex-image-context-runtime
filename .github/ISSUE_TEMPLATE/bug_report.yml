@@ -1,0 +1,79 @@
+name: Bug report
+description: Report a reproducible defect in the plugin, MCP server, or Runtime
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues first. Never post credentials, private media, prompts, provider responses, absolute paths, or an entire Runtime directory.
+  - type: input
+    id: release
+    attributes:
+      label: Release
+      description: Use a tagged version such as v0.1.1 or a commit hash.
+    validations:
+      required: true
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Node.js and Codex versions
+      placeholder: "Node 22.x; Codex surface and version"
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider mode
+      options:
+        - mock
+        - openai
+        - unknown
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal safe reproduction
+      description: Use synthetic prompts and media. Include exact bounded error codes when available.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Reviewed doctor output
+      description: Optional output from `npm run doctor -- --json`. Inspect it before posting.
+      render: json
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed credentials, private images, prompts, provider responses, personal information, and filesystem paths.
+          required: true
+        - label: The default offline tests or a synthetic reproduction can demonstrate this issue, or I explained why not.
+          required: true
