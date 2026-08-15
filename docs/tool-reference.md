@@ -40,7 +40,11 @@ Optional arguments are `workspace_id`, at most one of `prompt` or `prompt_ref`, 
 | `get_image_handoff` | Read the terminal bounded text handoff. |
 | `resume_image_job` | Resume only a queued or provably pre-dispatch failed Job. It may dispatch to a configured remote Provider. |
 | `cancel_image_job` | Cancel before dispatch; after dispatch, fail safe to `needs_review`. |
-| `list_image_jobs` | List up to 25 compact Job projections, optionally filtered by status and workspace ID. |
+| `list_image_jobs` | List up to 25 compact Job projections with an optional stable cursor, status filter, and workspace ID. |
+
+## Maintenance CLI
+
+`codex-image-context-compact` previews eligible records by default. After stopping Codex and the shared broker, add `--apply` to replace a bounded batch of completed or cancelled Job bodies with privacy-minimized tombstones. Idempotency bindings and compact artifact receipts remain, so replay cannot silently become a new paid dispatch. This is data minimization, not a claim of secure erasure.
 
 ## Job states
 

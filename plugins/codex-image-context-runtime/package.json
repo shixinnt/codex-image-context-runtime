@@ -1,6 +1,6 @@
 {
   "name": "codex-image-context-runtime",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "license": "Apache-2.0",
   "description": "A local, durable, context-bounded image runtime for Codex.",
@@ -10,6 +10,8 @@
   },
   "bin": {
     "codex-image-context-runtime": "./mcp/server.mjs",
+    "codex-image-context-broker": "./broker/server.mjs",
+    "codex-image-context-compact": "./scripts/compact.mjs",
     "codex-image-context-configure": "./scripts/configure.mjs",
     "codex-image-context-doctor": "./scripts/doctor.mjs"
   },

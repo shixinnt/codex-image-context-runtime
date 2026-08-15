@@ -6,6 +6,8 @@ import { assertBoundedPublicJson, assertExactKeys, assertSafeJobId, assertSafePu
 const JOB_ID_SCHEMA = { type: "string", pattern: "^img_[A-Za-z0-9_-]{8,96}$" };
 const SUPPORTED_MCP_PROTOCOLS = new Set(["2025-06-18", "2025-03-26"]);
 const DEFAULT_MCP_PROTOCOL = "2025-06-18";
+const SERVER_INFO = Object.freeze({ name: "codex-image-context-runtime", title: "Codex Image Context Runtime", version: VERSION, description: "Durable, context-bounded image generation and inspection.", websiteUrl: "https://github.com/shixinnt/codex-image-context-runtime" });
+const SERVER_INSTRUCTIONS = "Use relative refs and Job IDs. Media payloads, data URLs, raw Provider responses, credentials, and machine-specific paths are forbidden in public results.";
 const RESULT_OUTPUT_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -83,9 +85,9 @@ export const MCP_TOOLS = Object.freeze([
     description: "List bounded text-only job summaries without loading any media.",
     inputSchema: {
       type: "object", additionalProperties: false,
-      properties: { limit: { type: "integer", minimum: 1, maximum: 25, default: 20 }, status: { enum: ["queued", "running", "completed", "failed", "needs_review", "cancelled"] }, workspace_id: { type: "string" } }
+      properties: { limit: { type: "integer", minimum: 1, maximum: 25, default: 20 }, status: { enum: ["queued", "running", "completed", "failed", "needs_review", "cancelled"] }, workspace_id: { type: "string" }, cursor: { type: "string", minLength: 1, maxLength: 160 } }
     },
-    outputSchema: { type: "object", additionalProperties: false, required: ["count", "jobs"], properties: { count: { type: "integer" }, jobs: { type: "array", maxItems: 25, items: RESULT_OUTPUT_SCHEMA } } },
+    outputSchema: { type: "object", additionalProperties: false, required: ["count", "jobs", "next_cursor"], properties: { count: { type: "integer" }, jobs: { type: "array", maxItems: 25, items: RESULT_OUTPUT_SCHEMA }, next_cursor: { type: ["string", "null"] } } },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
   }
 ]);
@@ -138,7 +140,7 @@ export function createMcpService(runtime) {
           return success(`Image job ${result.job_id} is ${result.status}.`, result);
         }
         if (name === "list_image_jobs") {
-          assertExactKeys(args, { optional: ["limit", "status", "workspace_id"] }, "tool arguments");
+          assertExactKeys(args, { optional: ["limit", "status", "workspace_id", "cursor"] }, "tool arguments");
           const result = await runtime.listJobs(args);
           return success(`Found ${result.count} bounded image jobs.`, result);
         }
@@ -158,9 +160,11 @@ export function createMcpDispatcher({ runtime, service = createMcpService(runtim
     const { id, method, params } = message;
     if (id === undefined) return null;
     let response;
-    if (method === "initialize") {
+    if (method === "server/discover") {
+      response = { jsonrpc: "2.0", id, result: { resultType: "complete", supportedVersions: [...SUPPORTED_MCP_PROTOCOLS], capabilities: { tools: { listChanged: false } }, instructions: SERVER_INSTRUCTIONS, _meta: { "io.modelcontextprotocol/serverInfo": SERVER_INFO } } };
+    } else if (method === "initialize") {
       const protocolVersion = SUPPORTED_MCP_PROTOCOLS.has(params?.protocolVersion) ? params.protocolVersion : DEFAULT_MCP_PROTOCOL;
-      response = { jsonrpc: "2.0", id, result: { protocolVersion, capabilities: { tools: {} }, serverInfo: { name: "codex-image-context-runtime", title: "Codex Image Context Runtime", version: VERSION, description: "Durable, context-bounded image generation and inspection.", websiteUrl: "https://github.com/shixinnt/codex-image-context-runtime" }, instructions: "Use relative refs and Job IDs. Media bytes, base64, raw Provider responses, credentials, and absolute paths are forbidden in public results.", runtime: safeConfigSummary(runtime.config) } };
+      response = { jsonrpc: "2.0", id, result: { protocolVersion, capabilities: { tools: {} }, serverInfo: SERVER_INFO, instructions: SERVER_INSTRUCTIONS, runtime: safeConfigSummary(runtime.config) } };
     } else if (method === "ping") response = { jsonrpc: "2.0", id, result: {} };
     else if (method === "tools/list") response = { jsonrpc: "2.0", id, result: { tools: MCP_TOOLS } };
     else if (method === "tools/call") response = { jsonrpc: "2.0", id, result: await service.call(params?.name, params?.arguments ?? {}) };

@@ -68,21 +68,21 @@ Runtime state lives outside the plugin source tree:
 
 Job records, handoffs, idempotency claims, and output reservations are separate Runtime records. Generated artifacts are written to configured workspace-relative paths. Writes use atomic no-overwrite or create-or-replace patterns as appropriate.
 
-On filesystems that support hard links, a generated artifact is fully written and synced to a temporary file before an exclusive no-overwrite publish. Some Windows, SMB, or removable-volume filesystems reject hard links; v0.1 then uses an exclusive destination write that still prevents overwriting an existing file, but a process or host crash during that final write can leave a partial destination. Restart reconciliation treats an existing destination conservatively rather than automatically redispatching a paid request.
+On filesystems that support hard links, a generated artifact is fully written and synced to a temporary file before an exclusive no-overwrite publish. Some Windows, SMB, or removable-volume filesystems reject hard links; the Runtime then uses an exclusive destination write that still prevents overwriting an existing file, but a process or host crash during that final write can leave a partial destination. Restart reconciliation treats an existing destination conservatively rather than automatically redispatching a paid request.
 
 Windows can also briefly deny rename or exclusive-open operations while security software or indexing inspects a new file. The Runtime retries only `EPERM`, `EBUSY`, and `EACCES`: ordinary operations use a fixed approximately 1.5-second budget, while atomic replacement of frequently updated state files uses a separate approximately five-second budget. It never retries `EEXIST`, so transient-error handling cannot turn a no-overwrite operation into a replacement write.
 
-### Exclusive worker in v0.1
+### Shared broker in v0.2
 
-One Runtime directory permits one active MCP worker. Startup serializes acquisition and stale takeover with an atomic guard, then acquires a durable PID-and-token lock before reconciling jobs. Another live process fails closed; a stale lock whose owner PID no longer exists can be recovered. An indeterminate acquisition guard is never removed automatically. This prevents a second Codex task from classifying a first task's live dispatch as an interrupted job.
+One Runtime directory permits one Broker-owned Runtime worker. Each Codex task uses a thin stdio MCP bridge authenticated through an owner-only descriptor to the IPv4-loopback Broker. Startup serializes acquisition and stale takeover with an atomic guard, then acquires a durable PID-and-token lock before reconciling jobs. Concurrent bridge autostart converges on one owner; losing candidates exit before dispatch.
 
-Parallel Codex tasks must use distinct Runtime directories in v0.1. A shared multi-client broker or durable worker-lease design is deferred until it has its own failure and authentication tests.
+Authentication time, per-client in-flight requests, broker response buffering, request frames, and bridge backpressure are bounded. The same-user local process boundary is not a sandbox: another process able to read the Runtime directory can read durable prompts and the Broker token. Remote and LAN transport are not supported.
 
 ## Workspace binding
 
 Image inspection accepts only files under configured workspace roots. Configuration is performed outside the MCP tool surface. Tool callers cannot select a new root.
 
-Generation artifacts are written under the selected fixed workspace root. Output names are sanitized relative paths, never absolute paths. v0.1 has no separate configured output directory or Runtime artifact directory.
+Generation artifacts are written under the selected fixed workspace root. Output names are sanitized relative paths, never absolute paths. v0.2 has no separate configured output directory or Runtime artifact directory.
 
 ## Restart behavior
 
@@ -95,7 +95,7 @@ Generation artifacts are written under the selected fixed workspace root. Output
 
 The default Provider is deterministic and offline. The OpenAI Provider is loaded only when explicitly configured and reads its API key from the process environment. Provider response bodies remain private Runtime data and are reduced to receipts, short analysis text, or sanitized diagnostics.
 
-## Non-goals for v0.1
+## Non-goals for v0.2
 
 - Video generation.
 - A hosted public MCP service.

@@ -27,11 +27,14 @@ Treat any of the following as a security defect:
 - caller-controlled workspace or runtime roots bypassing fixed configuration;
 - unbounded provider downloads, command output, or text handoffs;
 - duplicate paid dispatch after an idempotent retry;
-- a second live process bypassing the exclusive Runtime ownership lock;
+- a second Broker worker bypassing the exclusive Runtime ownership lock;
+- unauthenticated, non-loopback, unbounded, or configuration-mismatched Broker access;
 - unexpected network access outside an explicitly enabled provider; or
 - live provider calls during the default offline test suite.
 
 Provider credentials must be supplied at runtime and must never be committed. Generated media and durable job state remain local unless a configured provider must receive an authorized input to perform the requested operation.
+
+The v0.2 Broker listens only on `127.0.0.1`, authenticates bridges with a random token and configuration hash stored in an owner-only Runtime descriptor, and bounds unauthenticated time, request frames, in-flight work, and response buffering. It is not designed to isolate mutually untrusted processes running as the same operating-system user.
 
 ## Public disclosure
 

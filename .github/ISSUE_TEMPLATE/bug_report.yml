@@ -12,7 +12,7 @@ body:
     id: release
     attributes:
       label: Release
-      description: Use a tagged version such as v0.1.1 or a commit hash.
+      description: Use a tagged version such as v0.2.0 or a commit hash.
     validations:
       required: true
   - type: dropdown

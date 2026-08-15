@@ -13,7 +13,7 @@ import { configure } from "../scripts/configure.mjs";
 
 const CONFIG_SCHEMA = "codex-image-context-config-v1";
 
-async function makeFixture(t, { providerConfig, provider, delayMs = 0 } = {}) {
+async function makeFixture(t, { providerConfig, provider, delayMs = 0, clock } = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "image-context-runtime-test-"));
   const workspace = path.join(root, "workspace");
   const runtimeDir = path.join(root, "runtime");
@@ -29,7 +29,8 @@ async function makeFixture(t, { providerConfig, provider, delayMs = 0 } = {}) {
     workspaces: [{ id: "workspace", root: workspace }]
   });
   const runtime = new ImageContextRuntime(config, {
-    provider: provider ?? createMockProvider({ delayMs })
+    provider: provider ?? createMockProvider({ delayMs }),
+    ...(clock ? { clock } : {})
   });
   t.after(async () => {
     await runtime.close().catch(() => {});
@@ -261,6 +262,97 @@ test("different idempotency keys cannot concurrently dispatch to the same output
   assert.ok(reservationFailures.length >= 1, "one competing request must fail locally");
 });
 
+test("job listing uses a bounded cursor without duplicate page entries", async (t) => {
+  const { runtime } = await makeFixture(t);
+  const submitted = [];
+  for (let index = 0; index < 5; index += 1) {
+    const job = await runtime.submitGeneration({
+      workspace_id: "workspace",
+      prompt: `Paginated synthetic image ${index}.`,
+      output_path: `pages/frame-${index}.png`,
+      size: "1024x1024",
+      quality: "low",
+      idempotency_key: `pagination-key-${index}`
+    });
+    submitted.push(await runtime.waitForIdle(job.job_id));
+  }
+  const first = await runtime.listJobs({ limit: 2, status: "completed" });
+  assert.equal(first.jobs.length, 2);
+  assert.match(first.next_cursor, /^job-v1_[0-9a-z]+_img_/);
+  const second = await runtime.listJobs({ limit: 2, status: "completed", cursor: first.next_cursor });
+  assert.equal(second.jobs.length, 2);
+  assert.match(second.next_cursor, /^job-v1_[0-9a-z]+_img_/);
+  const third = await runtime.listJobs({ limit: 2, status: "completed", cursor: second.next_cursor });
+  assert.equal(third.jobs.length, 1);
+  assert.equal(third.next_cursor, null);
+  const listedIds = [...first.jobs, ...second.jobs, ...third.jobs].map((job) => job.job_id);
+  assert.equal(new Set(listedIds).size, 5);
+  assert.deepEqual(new Set(listedIds), new Set(submitted.map((job) => job.job_id)));
+  await assert.rejects(runtime.listJobs({ cursor: "not-a-valid-cursor" }), (error) => error?.code === "INVALID_ARGUMENTS");
+});
+
+test("terminal compaction removes private bodies without retiring idempotency safety", async (t) => {
+  let providerCalls = 0;
+  const mock = createMockProvider();
+  const provider = {
+    ...mock,
+    async generate(request) {
+      providerCalls += 1;
+      return mock.generate(request);
+    }
+  };
+  const { runtime } = await makeFixture(t, { provider });
+  const args = {
+    workspace_id: "workspace",
+    prompt: "Private synthetic prompt removed by compaction.",
+    output_path: "compacted/frame.png",
+    size: "1024x1024",
+    quality: "low",
+    idempotency_key: "compaction-idempotency-key"
+  };
+  const submitted = await runtime.submitGeneration(args);
+  await runtime.waitForIdle(submitted.job_id);
+  const inspected = await runtime.submitInspection({
+    workspace_id: "workspace",
+    image_path: "compacted/frame.png",
+    prompt: "Private inspection instruction removed by compaction.",
+    mode: "inspect",
+    idempotency_key: "compaction-inspection-key"
+  });
+  await runtime.waitForIdle(inspected.job_id);
+  const before = await runtime.store.requireJob(submitted.job_id);
+  const beforeInspection = await runtime.store.requireJob(inspected.job_id);
+  assert.equal(before.private_input.prompt, args.prompt);
+  assert.equal(typeof beforeInspection.inspection_text, "string");
+
+  const preview = await runtime.compactJobs({ olderThanDays: 0, limit: 10, dryRun: true });
+  assert.equal(preview.eligible_count, 2);
+  assert.equal(preview.compacted_count, 0);
+  assert.equal((await runtime.store.requireJob(submitted.job_id)).private_input.prompt, args.prompt);
+
+  const applied = await runtime.compactJobs({ olderThanDays: 0, limit: 10, dryRun: false });
+  assert.equal(applied.compacted_count, 2);
+  const tombstone = await runtime.store.requireJob(submitted.job_id);
+  assert.equal(tombstone.record_state, "compacted");
+  assert.equal(tombstone.idempotency.state, "retired");
+  assert.equal(Object.hasOwn(tombstone, "private_input"), false);
+  assert.equal(tombstone.inspection_text, null);
+  assert.equal(tombstone.artifact_receipts.length, 1);
+  assert.equal((await runtime.getHandoff(submitted.job_id)).job.status, "completed");
+  const compactedInspection = await runtime.store.requireJob(inspected.job_id);
+  assert.equal(Object.hasOwn(compactedInspection, "private_input"), false);
+  const inspectionHandoff = await runtime.getHandoff(inspected.job_id);
+  assert.equal(inspectionHandoff.handoff_text.includes(beforeInspection.inspection_text), false);
+  const listed = await runtime.listJobs({ limit: 10 });
+  assert.deepEqual(new Set(listed.jobs.map((job) => job.job_id)), new Set([submitted.job_id, inspected.job_id]));
+
+  const replay = await runtime.submitGeneration(args);
+  assert.equal(replay.job_id, submitted.job_id);
+  assert.equal(replay.deduped, true);
+  assert.equal(providerCalls, 1);
+  assert.equal((await runtime.compactJobs({ olderThanDays: 0, dryRun: true })).eligible_count, 0);
+});
+
 test("runtime lock rejects a second live owner and permits stale PID recovery", async (t) => {
   const { config, runtime, runtimeDir } = await makeFixture(t);
   const contender = new ImageContextRuntime(config, { provider: createMockProvider() });
@@ -334,6 +426,9 @@ test("MCP exposes exactly seven tools and labels remote OpenAI cost-bearing subm
   assert.equal(generationSchema.oneOf.length, 2, "generation schema must require exactly one prompt source");
   const inspectionSchema = MCP_TOOLS.find((tool) => tool.name === "submit_image_inspection").inputSchema;
   assert.deepEqual(inspectionSchema.not.required, ["prompt", "prompt_ref"], "inspection schema must reject two prompt sources");
+  const listTool = MCP_TOOLS.find((tool) => tool.name === "list_image_jobs");
+  assert.equal(listTool.inputSchema.properties.cursor.maxLength, 160);
+  assert.deepEqual(listTool.outputSchema.required, ["count", "jobs", "next_cursor"]);
   const dispatch = createMcpDispatcher({ runtime: { config: {} } });
   const listed = await dispatch({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} });
   assert.equal(listed.result.tools.length, 7);
@@ -354,6 +449,13 @@ test("MCP negotiates supported protocols, ignores notifications, and rejects inv
 
   const compatible = await dispatch({ jsonrpc: "2.0", id: 2, method: "initialize", params: { protocolVersion: "2025-03-26" } });
   assert.equal(compatible.result.protocolVersion, "2025-03-26");
+
+  const discovery = await dispatch({ jsonrpc: "2.0", id: 4, method: "server/discover", params: { _meta: { "io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientCapabilities": {} } } });
+  assert.equal(discovery.result.resultType, "complete");
+  assert.deepEqual(discovery.result.supportedVersions, ["2025-06-18", "2025-03-26"]);
+  assert.deepEqual(discovery.result.capabilities, { tools: { listChanged: false } });
+  assert.equal(discovery.result._meta["io.modelcontextprotocol/serverInfo"].version, VERSION);
+  assert.equal(discovery.result.supportedVersions.includes("2026-07-28"), false, "do not advertise modern MCP before its full conformance gate passes");
 
   assert.equal(await dispatch({ jsonrpc: "2.0", method: "notifications/initialized", params: {} }), null);
   assert.equal(await dispatch({ jsonrpc: "2.0", method: "tools/list", params: {} }), null, "requests without IDs are notifications and must not receive responses");

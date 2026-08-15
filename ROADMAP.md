@@ -15,11 +15,16 @@ The roadmap is evidence-driven. Features move only after their public boundary, 
 - Privacy-safe configuration diagnostics.
 - Windows, Linux, and macOS CI.
 
-## v0.2 candidates
+## v0.2 - Shared Runtime and bounded history
 
-- Authenticated multi-client broker or durable worker leases for shared Runtime directories.
-- Pagination and retention controls for long-running job histories.
-- Compatibility investigation for MCP 2026-07-28 tasks and stateless server patterns.
+- Authenticated loopback broker shared by multiple thin stdio MCP bridges.
+- Global Provider concurrency, idempotency, and output reservations across Codex tasks.
+- Bounded authentication timeout, per-client in-flight work, response buffering, and stdio backpressure.
+- Cursor pagination and explicit privacy-minimizing compaction with retired idempotency tombstones.
+- Conservative `server/discover` fallback without advertising unverified MCP 2026-07-28 conformance or Tasks.
+
+## v0.3 candidates
+
 - Provider interface conformance suite.
 - Reference-image editing with bounded file and hash contracts.
 - Release-archive privacy verification.

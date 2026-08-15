@@ -14,7 +14,7 @@ The configured Runtime directory can contain:
 
 Generated images are written to configured workspace-relative output paths. The Runtime does not return provider image bytes, data URLs, or base64 media through its public MCP results.
 
-Treat both the Runtime directory and generated workspace artifacts as project data. Version 0.1.1 has no automatic retention or secure-deletion policy; records remain until the operator removes them while the worker is stopped. Filesystem deletion may not be secure erasure on every storage device.
+Treat both the Runtime directory and generated workspace artifacts as project data. Version 0.2.0 adds an explicit dry-run-first compaction command for completed and cancelled Job bodies. It retains minimized tombstones, artifact receipts, and retired idempotency bindings. There is still no automatic retention or guaranteed secure erasure. Filesystem deletion may not be secure erasure on every storage device.
 
 ## Credentials
 
@@ -34,4 +34,4 @@ Before sharing any output, review it yourself. Use synthetic reproduction data w
 
 ## Scope
 
-This policy describes version 0.1.1 of this independent open-source project. It does not replace the privacy terms of Codex, OpenAI APIs, GitHub, an operating system, or another service used alongside it.
+This policy describes version 0.2.0 of this independent open-source project. It does not replace the privacy terms of Codex, OpenAI APIs, GitHub, an operating system, or another service used alongside it.
