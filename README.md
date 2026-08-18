@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/shixinnt-codex-image-context-runtime-badge.png)](https://mseep.ai/app/shixinnt-codex-image-context-runtime)
+
 [简体中文](README.zh-CN.md)
 
 <p align="center">
